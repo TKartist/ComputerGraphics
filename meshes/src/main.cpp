@@ -11,6 +11,7 @@
 
 #include "Image.h"
 #include "Material.h"
+#include "OBJloader.h"
 
 using namespace std;
 
@@ -44,7 +45,6 @@ struct Hit
 	glm::vec3 intersection; ///< Point of Intersection
 	float distance;			///< Distance from the origin of the ray to the intersection point
 	Object *object;			///< A pointer to the intersected object
-	glm::vec2 uv;			///< Coordinates for computing the texture (texture coordinates)
 };
 
 /**
@@ -64,7 +64,7 @@ public:
 		return material;
 	}
 	/** Function that set the material
-	 @param material A structure describing the material of the object
+	 @param material A structure desribing the material of the object
 	*/
 	void setMaterial(Material material)
 	{
@@ -131,14 +131,6 @@ public:
 			hit.normal = glm::normalize(hit.intersection - center);
 			hit.distance = glm::distance(ray.origin, hit.intersection);
 			hit.object = this;
-
-			/*
-
-
-			 Excercise 2 - computing texture coordintes for the sphere. You can refer to them as s and t, or x and y, whatever you prefer ;)
-			*/
-			hit.uv.s = 0.5 - glm::asin(hit.normal.y) / M_PI;
-			hit.uv.t = 2 * (0.5 + glm::atan(hit.normal.x / hit.normal.z) / (2 * M_PI));
 		}
 		else
 		{
@@ -148,45 +140,65 @@ public:
 	}
 };
 
-class Plane : public Object
+class Triangle : public Object
 {
-
 private:
-	glm::vec3 normal;
-	glm::vec3 point;
+	Face face;
 
 public:
-	Plane(glm::vec3 point, glm::vec3 normal) : point(point), normal(normal)
+	/**
+	 The constructor of the sphere
+	 @param face Face of the triangle
+	 @param color Color of the sphere
+	 */
+	Triangle(Face face, glm::vec3 color) : face(face)
 	{
+		this->color = color;
 	}
-	Plane(glm::vec3 point, glm::vec3 normal, Material material) : point(point), normal(normal)
+	Triangle(Face face, Material material) : face(face)
 	{
 		this->material = material;
 	}
+	/** Implementation of the intersection function*/
 	Hit intersect(Ray ray)
 	{
 
+		// glm::vec3 c = center - ray.origin;
+
+		// float cdotc = glm::dot(c, c);
+		// float cdotd = glm::dot(c, ray.direction);
+		float n_normal_d = glm::dot(face.triangleNormal, ray.direction);
 		Hit hit;
-		hit.hit = false;
 
-		/*
-		 Excercise 1 - Plane-ray intersection
-		 */
-
-		float a = glm::dot(point - ray.origin, normal);
-		float b = glm::dot(ray.direction, normal);
-
-		float t = a / b;
-
-		if (b != 0 && t > 0)
+		// float D = 0;
+		// if (cdotc > cdotd * cdotd)
+		// {
+		// 	D = sqrt(cdotc - cdotd * cdotd);
+		// }
+		if (n_normal_d < 0.0001f)
+		{
+			hit.hit = false;
+		}
+		else
 		{
 			hit.hit = true;
-			hit.intersection = ray.origin + ray.direction * t;
-			hit.normal = glm::normalize(normal);
+			float t1 = cdotd - sqrt(radius * radius - D * D);
+			float t2 = cdotd + sqrt(radius * radius - D * D);
+
+			float t = t1;
+			if (t < 0)
+				t = t2;
+			if (t < 0)
+			{
+				hit.hit = false;
+				return hit;
+			}
+
+			hit.intersection = ray.origin + t * ray.direction;
+			hit.normal = glm::normalize(hit.intersection - center);
 			hit.distance = glm::distance(ray.origin, hit.intersection);
 			hit.object = this;
 		}
-
 		return hit;
 	}
 };
@@ -213,52 +225,41 @@ glm::vec3 ambient_light(1.0, 1.0, 1.0);
 vector<Object *> objects; ///< A list of all objects in the scene
 
 /** Function for computing color of an object according to the Phong Model
- @param point A point belonging to the object for which the color is computer
+ @param point A point belonging to the object for which the color is computed
  @param normal A normal vector the the point
- @param uv Texture coordinates
  @param view_direction A normalized direction from the point to the viewer/camera
  @param material A material structure representing the material of the object
 */
-glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec2 uv, glm::vec3 view_direction, Material material)
+glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec3 view_direction, Material material)
 {
 
 	glm::vec3 color(0.0);
-	for (int light_num = 0; light_num < lights.size(); light_num++)
+
+	/*
+
+	 Assignment 2
+
+	 Phong model.
+	 Your code should implement a loop over all the lightsources in the array lights and agredate the contribution of each of them to the final color of the object.
+	 Outside of the loop add also the ambient component from ambient_light.
+
+	*/
+	for (Light *light : lights)
 	{
+		// getting diffuse
+		glm::vec3 lightSource = glm::normalize(light->position - point);
+		float diffuse = max(glm::dot(lightSource, normal), 0.0f);
 
-		glm::vec3 light_direction = glm::normalize(lights[light_num]->position - point);
-		glm::vec3 reflected_direction = glm::reflect(-light_direction, normal);
+		// getting specular
+		glm::vec3 halfVector = glm::normalize(lightSource + view_direction);
+		float specular = glm::pow(max(glm::dot(normal, halfVector), 0.0f), 4 * material.shininess);
 
-		float NdotL = glm::clamp(glm::dot(normal, light_direction), 0.0f, 1.0f);
-		float VdotR = glm::clamp(glm::dot(view_direction, reflected_direction), 0.0f, 1.0f);
-
-		/*
-		 Excercise 2 - Modify the code by adding texturing, i.e., the diffuse color should be computed using one of the texture functions according to the texture coordinates stored in the uv variable. Make sure that the code works also for objects that should not have texture.
-		 */
-
-		glm::vec3 diffuse;
-		if (material.texture != NULL)
-		{
-			diffuse = material.texture(uv) * glm::vec3(NdotL);
-		}
-		else
-		{
-			diffuse = material.diffuse * glm::vec3(NdotL);
-		}
-		glm::vec3 specular = material.specular * glm::vec3(pow(VdotR, material.shininess));
-
-		/*
-		 Excercise 3 - Modify the code by adding attenuation of the light due to distance from the intersection point to the light source
-		 */
-
-		// implementing attenuation
-		float distance = glm::distance(point, lights[light_num]->color);
-		distance = distance < 0.8 ? 0.8 : distance;
-		float attenuation = glm::clamp(1 / glm::pow(distance, 2), 1.0, 3.0);
-		color += attenuation * lights[light_num]->color * (diffuse + specular);
+		color += light->color * (material.diffuse * diffuse + material.specular * specular);
 	}
+
 	color += ambient_light * material.ambient;
 
+	// The final color has to be clamped so the values do not go beyond 0 and 1.
 	color = glm::clamp(color, glm::vec3(0.0), glm::vec3(1.0));
 	return color;
 }
@@ -287,7 +288,15 @@ glm::vec3 trace_ray(Ray ray)
 
 	if (closest_hit.hit)
 	{
-		color = PhongModel(closest_hit.intersection, closest_hit.normal, closest_hit.uv, glm::normalize(-ray.direction), closest_hit.object->getMaterial());
+		color = PhongModel(closest_hit.intersection, closest_hit.normal, glm::normalize(-ray.direction), closest_hit.object->getMaterial());
+		/*
+
+		 Assignment 2
+
+		 Replace the above line of the code with the call of the function for computing Phong model below.
+
+		*/
+		// color = PhongModel(closest_hit.intersection, closest_hit.normal, glm::normalize(-ray.direction), closest_hit.object->getMaterial());
 	}
 	else
 	{
@@ -300,115 +309,53 @@ glm::vec3 trace_ray(Ray ray)
  */
 void sceneDefinition()
 {
-
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
-	red_specular.ambient = glm::vec3(0.3f, 0.1f, 0.1f);
+	red_specular.ambient = glm::vec3(0.01f, 0.03f, 0.03f);
 	red_specular.specular = glm::vec3(0.5);
 	red_specular.shininess = 10.0;
 
 	Material blue_specular;
-	blue_specular.diffuse = glm::vec3(0.6f, 0.6f, 1.0f);
-	blue_specular.ambient = glm::vec3(0.07f, 0.1f, 0.35f);
+	blue_specular.diffuse = glm::vec3(0.7f, 0.7f, 1.0f);
+	blue_specular.ambient = glm::vec3(0.07f, 0.07f, 0.1f);
 	blue_specular.specular = glm::vec3(0.6);
 	blue_specular.shininess = 100.0;
 
 	Material green_specular;
-	green_specular.diffuse = glm::vec3(0.6f, 0.9f, 0.6f);
-	green_specular.ambient = glm::vec3(0.1f, 0.3f, 0.1f);
+	green_specular.diffuse = glm::vec3(0.7f, 0.9f, 0.7f);
+	green_specular.ambient = glm::vec3(0.07f, 0.09f, 0.07f);
 	green_specular.specular = glm::vec3(0.0);
-	green_specular.shininess = 10.0;
+	green_specular.shininess = 0.0;
 
-	Material white_wall;
-	white_wall.ambient = glm::vec3(0.2f);
-	white_wall.diffuse = glm::vec3(1.0f);
-	white_wall.specular = glm::vec3(1.0);
-	white_wall.shininess = 100.0;
-
-	Material purple_wall;
-	purple_wall.ambient = glm::vec3(0.1f, 0.01f, 0.0f);
-	purple_wall.diffuse = glm::vec3(0.7f, 0.7f, 1.0f);
-
-	Material pink_wall;
-	pink_wall.diffuse = glm::vec3(1.3f, 0.5f, 0.8f);
-	pink_wall.ambient = glm::vec3(0.03f, 0.01f, 0.0f);
-
-	Material turquoise_wall;
-	turquoise_wall.ambient = glm::vec3(0.01f, 0.0f, 0.1f);
-	turquoise_wall.diffuse = glm::vec3(0.4f, 0.7f, 0.7f);
-
-	objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
 	objects.push_back(new Sphere(0.5, glm::vec3(-1.0, -2.5, 6.0), red_specular));
+	objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
 	objects.push_back(new Sphere(1.0, glm::vec3(3.0, -2.0, 6.0), green_specular));
-
-	// Excercise 2 - Textured sphere
-	Material textured;
-	textured.texture = &checkerboardTexture;
-
-	Material rainbow;
-	rainbow.texture = &rainbowTexture;
-	rainbow.ambient = glm::vec3(0.0);
-	rainbow.specular = glm::vec3(1.0);
-	rainbow.shininess = 10.0;
-
-	// objects.push_back(new Sphere(7.0, glm::vec3(-6.0, 4.0, 23.0), textured));
-	// uncomment above line and comment the line below to see the checkboard pattern
-	objects.push_back(new Sphere(7.0, glm::vec3(-6.0, 4.0, 23.0), rainbow));
-	// objects.push_back(new Sphere(7.0, glm::vec3(-10, 3, 1), rainbow));
-
 	/*
-	 Excercise 1 - Definition of planes and the materials
-	 */
 
-	// defining planes;
+	 Assignment 2
 
-	// extending x-axis
-	objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0), pink_wall));
-	objects.push_back(new Plane(glm::vec3(15, 0, 0), glm::vec3(-1, 0, 0), purple_wall));
+	 Add here all the objects to the scene. Remember to add them using the new constructor for the sphere with material structure.
+	 You will also need to define the materials.
+	 Example of adding one sphere:
 
-	// extending y-axis
-	objects.push_back(new Plane(glm::vec3(0, -3, 0), glm::vec3(0, 1, 0), white_wall));
-	objects.push_back(new Plane(glm::vec3(0, 27, 0), glm::vec3(0, -1, 0), white_wall));
+	 Material red_specular;
+	 red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
+	 red_specular.ambient = glm::vec3(0.01f, 0.03f, 0.03f);
+	 red_specular.specular = glm::vec3(0.5);
+	 red_specular.shininess = 10.0;
 
-	// extending z-axis
-	objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
-	objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
+	 objects.push_back(new Sphere(0.5, glm::vec3(-1,-2.5,6), red_specular));
 
-	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.4)));
-	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.4)));
-	lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.4)));
-}
 
-/**
- Function performing tonemapping of the intensities computed using the raytracer
- @param intensity Input intensity
- @return Tonemapped intensity in range (0,1)
- */
-glm::vec3 toneMapping(glm::vec3 intensity)
-{
+	 Remember also about adding some lights. For example a white light of intensity 0.4 and position in (0,26,5):
 
-	glm::vec3 tonemapped = intensity; // tonemapped intensity
+	 lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.4)));
 
-	// taking tone level of candle light
-	const float alpha = 0.7f;
-	const float beta = 1.4f;
-	const float gamma = 1.4f;
-	const float intensityPower = 1 / gamma;
+	*/
 
-	/*
-	 Excercise 3 - Tone mapping
-	 */
-
-	// Tone map routine
-	tonemapped.x = glm::pow(tonemapped.x, beta);
-	tonemapped.y = glm::pow(tonemapped.y, beta);
-	tonemapped.z = glm::pow(tonemapped.z, beta);
-	tonemapped = tonemapped * alpha;
-	tonemapped.x = min(glm::pow(tonemapped.x, intensityPower), 1.0f);
-	tonemapped.y = min(glm::pow(tonemapped.y, intensityPower), 1.0f);
-	tonemapped.z = min(glm::pow(tonemapped.z, intensityPower), 1.0f);
-
-	return glm::clamp(tonemapped, glm::vec3(0.0), glm::vec3(1.0));
+	lights.push_back(new Light(glm::vec3(0.0, 26.0, 5.0), glm::vec3(0.4)));
+	lights.push_back(new Light(glm::vec3(0.0, 1.0, 12.0), glm::vec3(0.4)));
+	lights.push_back(new Light(glm::vec3(0.0, 5.0, 1.0), glm::vec3(0.4)));
 }
 
 int main(int argc, const char *argv[])
@@ -442,7 +389,7 @@ int main(int argc, const char *argv[])
 
 			Ray ray(origin, direction);
 
-			image.setPixel(i, j, toneMapping(trace_ray(ray)));
+			image.setPixel(i, j, trace_ray(ray));
 		}
 
 	t = clock() - t;
