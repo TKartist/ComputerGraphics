@@ -24,6 +24,7 @@ struct Face
     glm::vec3 n2;
     glm::vec3 n3;
     glm::vec3 triangleNormal;
+    float area;
 };
 
 static vector<Face>
@@ -108,6 +109,7 @@ loadOBJ(const char *file_name)
             glm::vec3 PQ = face.p2 - face.p1;
             glm::vec3 PR = face.p3 - face.p1;
             face.triangleNormal = glm::cross(PQ, PR);
+            face.area = glm::length(face.triangleNormal) / 2;
             faces.push_back(face);
         }
     }

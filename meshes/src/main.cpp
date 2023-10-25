@@ -178,28 +178,29 @@ public:
 		if (n_normal_d < 0.0001f)
 		{
 			hit.hit = false;
+			return hit;
 		}
-		else
+		glm::vec3 distanceVector = face.p1 - ray.origin;
+		float t = glm::dot(face.triangleNormal, distanceVector) / n_normal_d;
+		glm::vec3 onPlanePoint = ray.origin + ray.direction * t;
+		// if ray lands outside of the triangle, the sum of residue triangles should exceed the area of given triangle.
+		// under this assumption
+		if (getArea(onPlanePoint, face.p1, face.p2) + getArea(onPlanePoint, face.p1, face.p3) + getArea(onPlanePoint, face.p2, face.p3) > face.area)
 		{
-			hit.hit = true;
-			float t1 = cdotd - sqrt(radius * radius - D * D);
-			float t2 = cdotd + sqrt(radius * radius - D * D);
-
-			float t = t1;
-			if (t < 0)
-				t = t2;
-			if (t < 0)
-			{
-				hit.hit = false;
-				return hit;
-			}
-
-			hit.intersection = ray.origin + t * ray.direction;
-			hit.normal = glm::normalize(hit.intersection - center);
-			hit.distance = glm::distance(ray.origin, hit.intersection);
-			hit.object = this;
+			hit.hit = false;
+			return hit;
 		}
+		hit.hit = true;
+		hit.intersection = onPlanePoint;
+		// hit.normal = face.triangleNormal;
+		// hit.distance = glm::distance(ray.origin, hit.intersection);
+		// hit.object = this;
 		return hit;
+	}
+
+	float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3)
+	{
+		return glm::length(glm::cross((p3 - p1), (p2 - p1))) / 2;
 	}
 };
 
