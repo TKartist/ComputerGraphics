@@ -192,9 +192,10 @@ public:
 		}
 		hit.hit = true;
 		hit.intersection = onPlanePoint;
-		// hit.normal = face.triangleNormal;
-		// hit.distance = glm::distance(ray.origin, hit.intersection);
-		// hit.object = this;
+		// assuming hit.normal = ray.direction - 2 * (dot(ray.direction, object.triangleNormal)) * ray.direction
+		hit.normal = ray.direction - (2 * n_normal_d * ray.direction);
+		hit.distance = glm::distance(ray.origin, hit.intersection);
+		hit.object = this;
 		return hit;
 	}
 
@@ -331,28 +332,6 @@ void sceneDefinition()
 	objects.push_back(new Sphere(0.5, glm::vec3(-1.0, -2.5, 6.0), red_specular));
 	objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
 	objects.push_back(new Sphere(1.0, glm::vec3(3.0, -2.0, 6.0), green_specular));
-	/*
-
-	 Assignment 2
-
-	 Add here all the objects to the scene. Remember to add them using the new constructor for the sphere with material structure.
-	 You will also need to define the materials.
-	 Example of adding one sphere:
-
-	 Material red_specular;
-	 red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
-	 red_specular.ambient = glm::vec3(0.01f, 0.03f, 0.03f);
-	 red_specular.specular = glm::vec3(0.5);
-	 red_specular.shininess = 10.0;
-
-	 objects.push_back(new Sphere(0.5, glm::vec3(-1,-2.5,6), red_specular));
-
-
-	 Remember also about adding some lights. For example a white light of intensity 0.4 and position in (0,26,5):
-
-	 lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.4)));
-
-	*/
 
 	lights.push_back(new Light(glm::vec3(0.0, 26.0, 5.0), glm::vec3(0.4)));
 	lights.push_back(new Light(glm::vec3(0.0, 1.0, 12.0), glm::vec3(0.4)));
