@@ -145,12 +145,6 @@ class Triangle : public Object
 private:
 	Face face;
 
-	float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3)
-	{
-		float x = glm::length(glm::cross((p3 - p1), (p2 - p1))) / 2;
-		return x;
-	}
-
 public:
 	/**
 	 The constructor of the sphere
@@ -182,7 +176,7 @@ public:
 		}
 		glm::vec3 distanceVector = face.p1 - ray.origin;
 		float D = glm::dot(face.triangleNormal, face.p1) * -1;
-		float t = (glm::dot(face.triangleNormal, distanceVector) + D) / n_normal_d;
+		float t = glm::dot(face.triangleNormal, distanceVector) / n_normal_d;
 		glm::vec3 onPlanePoint = ray.origin + ray.direction * t;
 		// if ray lands outside of the triangle, the sum of residue triangles should exceed the area of given triangle.
 		// under this assumption
@@ -193,7 +187,7 @@ public:
 		glm::vec3 c1 = onPlanePoint - face.p2;
 		glm::vec3 c2 = onPlanePoint - face.p3;
 
-		if (glm::dot(face.triangleNormal, glm::cross(edge0, c0)) > 0 && glm::dot(face.triangleNormal, glm::cross(edge1, c1)) > 0 && glm::dot(face.triangleNormal, glm::cross(edge2, c2)) > 0)
+		if (glm::dot(face.triangleNormal, glm::cross(edge0, c0)) >= 0 && glm::dot(face.triangleNormal, glm::cross(edge1, c1)) >= 0 && glm::dot(face.triangleNormal, glm::cross(edge2, c2)) >= 0)
 		{
 			hit.hit = true;
 			hit.intersection = onPlanePoint;
@@ -305,7 +299,9 @@ glm::vec3 trace_ray(Ray ray)
  */
 void sceneDefinition()
 {
-	vector<Face> faces = loadOBJ("./meshes/bunny.obj");
+	vector<Face> bunny = loadOBJ("./meshes/bunny.obj");
+	// vector<Face> arma = loadOBJ("./meshes/armadillo.obj");
+	// vector<Face> lucy = loadOBJ("./meshes/lucy.obj");
 
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
@@ -329,10 +325,16 @@ void sceneDefinition()
 	// objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
 	// objects.push_back(new Sphere(1.0, glm::vec3(3.0, -2.0, 6.0), green_specular));
 
-	for (int i = 0; i < faces.size(); i++)
+	for (int i = 0; i < bunny.size(); i++)
 	{
-		objects.push_back(new Triangle(faces[i], red_specular));
+		objects.push_back(new Triangle(bunny[i], red_specular));
 	}
+
+	// for (int i = 0; i < arma.size(); i++)
+	// {
+	// 	arma.
+	// 	objects.push_back(new Triangle(arma[i], red_specular));
+	// }
 
 	lights.push_back(new Light(glm::vec3(0.0, 26.0, 5.0), glm::vec3(0.4)));
 	lights.push_back(new Light(glm::vec3(0.0, 1.0, 12.0), glm::vec3(0.4)));
@@ -364,7 +366,7 @@ int main(int argc, const char *argv[])
 			float dy = Y - j * s - s / 2;
 			float dz = 1;
 
-			glm::vec3 origin(-1, 0, -3); // z-axis:front and back y-axis: left and right x-axis: up and down
+			glm::vec3 origin(0, -2, -8); // z-axis:front and back y-axis: left and right x-axis: up and down
 			glm::vec3 direction(dx, dy, dz);
 			direction = glm::normalize(direction);
 

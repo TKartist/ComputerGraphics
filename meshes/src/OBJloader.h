@@ -24,7 +24,6 @@ struct Face
     glm::vec3 n2;
     glm::vec3 n3;
     glm::vec3 triangleNormal;
-    float area;
 };
 
 static vector<Face>
@@ -63,7 +62,6 @@ loadOBJ(const char *file_name)
             val.x = val.x;
             val.y = val.y;
             val.z = val.z;
-            cout << val.x << val.y << val.z << endl;
             vectors.push_back(val);
         }
         else if (prefix == "vn")
@@ -81,6 +79,7 @@ loadOBJ(const char *file_name)
                 faceVectors.push_back(tmp_glint);
             }
             Face face;
+            // cout << vectors.size() << endl;
             face.p1 = vectors[faceVectors[faceVectors.size() - 3] - 1];
             face.p2 = vectors[faceVectors[faceVectors.size() - 2] - 1];
             face.p3 = vectors[faceVectors[faceVectors.size() - 1] - 1];
@@ -93,7 +92,6 @@ loadOBJ(const char *file_name)
             glm::vec3 PQ = face.p2 - face.p1;
             glm::vec3 PR = face.p3 - face.p1;
             face.triangleNormal = glm::cross(PQ, PR);
-            face.area = glm::length(face.triangleNormal) / 2;
             faces.push_back(face);
         }
     }
