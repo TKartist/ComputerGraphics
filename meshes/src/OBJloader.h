@@ -45,8 +45,10 @@ loadOBJ(const char *file_name)
     string line = "";
     glm::vec3 val;
     string prefix = "";
+    int faceVectorIndex = 0;
     vector<GLint> faceVectors;
-    vector<GLint> faceNormals;
+    // vector<GLint> faceNormals;
+    int crawler = 0;
 
     // read one line at a time
     while (getline(in_file, line))
@@ -58,6 +60,10 @@ loadOBJ(const char *file_name)
         if (prefix == "v")
         { // vertex position
             ss >> val.x >> val.y >> val.z;
+            val.x = val.x;
+            val.y = val.y;
+            val.z = val.z;
+            cout << val.x << val.y << val.z << endl;
             vectors.push_back(val);
         }
         else if (prefix == "vn")
@@ -72,40 +78,18 @@ loadOBJ(const char *file_name)
 
             while (ss >> tmp_glint)
             {
-                if (counter == 0)
-                {
-                    faceVectors.push_back(tmp_glint);
-                }
-                else if (counter == 2)
-                {
-                    faceNormals.push_back(tmp_glint);
-                }
-
-                if (tmp_glint == '/')
-                {
-                    ++counter;
-                    ss.ignore(1, '/');
-                }
-                else if (tmp_glint == ' ')
-                {
-                    ++counter;
-                    ss.ignore(1, ' ');
-                }
-                if (counter > 2)
-                {
-                    counter = 0;
-                }
+                faceVectors.push_back(tmp_glint);
             }
             Face face;
-            face.p1 = vectors[faceVectors[0]];
-            face.p2 = vectors[faceVectors[1]];
-            face.p3 = vectors[faceVectors[2]];
-            if (vectorNormals.size() > 0)
-            {
-                face.n1 = vectors[faceNormals[0]];
-                face.n2 = vectors[faceNormals[1]];
-                face.n3 = vectors[faceNormals[2]];
-            }
+            face.p1 = vectors[faceVectors[faceVectors.size() - 3] - 1];
+            face.p2 = vectors[faceVectors[faceVectors.size() - 2] - 1];
+            face.p3 = vectors[faceVectors[faceVectors.size() - 1] - 1];
+            // if (vectorNormals.size() > 0)
+            // {
+            //     face.n1 = vectors[faceNormals[0]];
+            //     face.n2 = vectors[faceNormals[1]];
+            //     face.n3 = vectors[faceNormals[2]];
+            // }
             glm::vec3 PQ = face.p2 - face.p1;
             glm::vec3 PR = face.p3 - face.p1;
             face.triangleNormal = glm::cross(PQ, PR);

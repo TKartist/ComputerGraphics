@@ -145,6 +145,12 @@ class Triangle : public Object
 private:
 	Face face;
 
+	float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3)
+	{
+		float x = glm::length(glm::cross((p3 - p1), (p2 - p1))) / 2;
+		return x;
+	}
+
 public:
 	/**
 	 The constructor of the sphere
@@ -169,39 +175,34 @@ public:
 		// float cdotd = glm::dot(c, ray.direction);
 		float n_normal_d = glm::dot(face.triangleNormal, ray.direction);
 		Hit hit;
-
-		// float D = 0;
-		// if (cdotc > cdotd * cdotd)
-		// {
-		// 	D = sqrt(cdotc - cdotd * cdotd);
-		// }
+		hit.hit = false;
 		if (n_normal_d < 0.0001f)
 		{
-			hit.hit = false;
 			return hit;
 		}
 		glm::vec3 distanceVector = face.p1 - ray.origin;
-		float t = glm::dot(face.triangleNormal, distanceVector) / n_normal_d;
+		float D = glm::dot(face.triangleNormal, face.p1) * -1;
+		float t = (glm::dot(face.triangleNormal, distanceVector) + D) / n_normal_d;
 		glm::vec3 onPlanePoint = ray.origin + ray.direction * t;
 		// if ray lands outside of the triangle, the sum of residue triangles should exceed the area of given triangle.
 		// under this assumption
-		if (getArea(onPlanePoint, face.p1, face.p2) + getArea(onPlanePoint, face.p1, face.p3) + getArea(onPlanePoint, face.p2, face.p3) > face.area)
-		{
-			hit.hit = false;
-			return hit;
-		}
-		hit.hit = true;
-		hit.intersection = onPlanePoint;
-		// assuming hit.normal = ray.direction - 2 * (dot(ray.direction, object.triangleNormal)) * ray.direction
-		hit.normal = ray.direction - (2 * n_normal_d * ray.direction);
-		hit.distance = glm::distance(ray.origin, hit.intersection);
-		hit.object = this;
-		return hit;
-	}
+		glm::vec3 edge0 = face.p2 - face.p1;
+		glm::vec3 edge1 = face.p3 - face.p2;
+		glm::vec3 edge2 = face.p1 - face.p3;
+		glm::vec3 c0 = onPlanePoint - face.p1;
+		glm::vec3 c1 = onPlanePoint - face.p2;
+		glm::vec3 c2 = onPlanePoint - face.p3;
 
-	float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3)
-	{
-		return glm::length(glm::cross((p3 - p1), (p2 - p1))) / 2;
+		if (glm::dot(face.triangleNormal, glm::cross(edge0, c0)) > 0 && glm::dot(face.triangleNormal, glm::cross(edge1, c1)) > 0 && glm::dot(face.triangleNormal, glm::cross(edge2, c2)) > 0)
+		{
+			hit.hit = true;
+			hit.intersection = onPlanePoint;
+			// assuming hit.normal = ray.direction - 2 * (dot(ray.direction, object.triangleNormal)) * ray.direction
+			hit.normal = ray.direction - (2 * n_normal_d * ray.direction);
+			hit.distance = glm::distance(ray.origin, hit.intersection);
+			hit.object = this;
+		}
+		return hit;
 	}
 };
 
@@ -291,13 +292,6 @@ glm::vec3 trace_ray(Ray ray)
 	if (closest_hit.hit)
 	{
 		color = PhongModel(closest_hit.intersection, closest_hit.normal, glm::normalize(-ray.direction), closest_hit.object->getMaterial());
-		/*
-
-		 Assignment 2
-
-		 Replace the above line of the code with the call of the function for computing Phong model below.
-
-		*/
 		// color = PhongModel(closest_hit.intersection, closest_hit.normal, glm::normalize(-ray.direction), closest_hit.object->getMaterial());
 	}
 	else
@@ -311,6 +305,8 @@ glm::vec3 trace_ray(Ray ray)
  */
 void sceneDefinition()
 {
+	vector<Face> faces = loadOBJ("./meshes/bunny.obj");
+
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
 	red_specular.ambient = glm::vec3(0.01f, 0.03f, 0.03f);
@@ -329,9 +325,14 @@ void sceneDefinition()
 	green_specular.specular = glm::vec3(0.0);
 	green_specular.shininess = 0.0;
 
-	objects.push_back(new Sphere(0.5, glm::vec3(-1.0, -2.5, 6.0), red_specular));
-	objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
-	objects.push_back(new Sphere(1.0, glm::vec3(3.0, -2.0, 6.0), green_specular));
+	// objects.push_back(new Sphere(0.5, glm::vec3(-1.0, -2.5, 6.0), red_specular));
+	// objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
+	// objects.push_back(new Sphere(1.0, glm::vec3(3.0, -2.0, 6.0), green_specular));
+
+	for (int i = 0; i < faces.size(); i++)
+	{
+		objects.push_back(new Triangle(faces[i], red_specular));
+	}
 
 	lights.push_back(new Light(glm::vec3(0.0, 26.0, 5.0), glm::vec3(0.4)));
 	lights.push_back(new Light(glm::vec3(0.0, 1.0, 12.0), glm::vec3(0.4)));
@@ -363,7 +364,7 @@ int main(int argc, const char *argv[])
 			float dy = Y - j * s - s / 2;
 			float dz = 1;
 
-			glm::vec3 origin(0, 0, 0);
+			glm::vec3 origin(-1, 0, -3); // z-axis:front and back y-axis: left and right x-axis: up and down
 			glm::vec3 direction(dx, dy, dz);
 			direction = glm::normalize(direction);
 
