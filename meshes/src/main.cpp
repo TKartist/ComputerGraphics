@@ -299,9 +299,9 @@ glm::vec3 trace_ray(Ray ray)
  */
 void sceneDefinition()
 {
-	glm::vec3 bunnyStartingPos = glm::vec3(0, 0, 0);
-	glm::vec3 armaStartingPos = glm::vec3(0, 0, 0);
-	glm::vec3 lucyStartingPos = glm::vec3(0, 0, 0);
+	glm::vec3 bunnyStartingPos = glm::vec3(0.0f, 3.0f, 9.0f);
+	glm::vec3 armaStartingPos = glm::vec3(0.0f, 6.0f, 9.0f);
+	glm::vec3 lucyStartingPos = glm::vec3(0.0f, 9.0f, 9.0f);
 	// passing the filepath and 3d object position
 	vector<Face> bunny = loadOBJ("./meshes/bunny.obj", bunnyStartingPos);
 	vector<Face> arma = loadOBJ("./meshes/armadillo.obj", armaStartingPos);
@@ -378,7 +378,7 @@ int main(int argc, const char *argv[])
 			float dy = Y - j * s - s / 2;
 			float dz = 1;
 
-			glm::vec3 origin(0, -2, -8); // z-axis:front and back y-axis: left and right x-axis: up and down
+			glm::vec3 origin(0, 0, 0); // z-axis:front and back y-axis: left and right x-axis: up and down
 			glm::vec3 direction(dx, dy, dz);
 			direction = glm::normalize(direction);
 
