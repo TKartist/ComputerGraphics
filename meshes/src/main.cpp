@@ -299,9 +299,13 @@ glm::vec3 trace_ray(Ray ray)
  */
 void sceneDefinition()
 {
-	vector<Face> bunny = loadOBJ("./meshes/bunny.obj");
-	// vector<Face> arma = loadOBJ("./meshes/armadillo.obj");
-	// vector<Face> lucy = loadOBJ("./meshes/lucy.obj");
+	glm::vec3 bunnyStartingPos = glm::vec3(0, 0, 0);
+	glm::vec3 armaStartingPos = glm::vec3(0, 0, 0);
+	glm::vec3 lucyStartingPos = glm::vec3(0, 0, 0);
+	// passing the filepath and 3d object position
+	vector<Face> bunny = loadOBJ("./meshes/bunny.obj", bunnyStartingPos);
+	vector<Face> arma = loadOBJ("./meshes/armadillo.obj", armaStartingPos);
+	vector<Face> lucy = loadOBJ("./meshes/lucy.obj", lucyStartingPos);
 
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
@@ -328,6 +332,14 @@ void sceneDefinition()
 	for (int i = 0; i < bunny.size(); i++)
 	{
 		objects.push_back(new Triangle(bunny[i], red_specular));
+	}
+	for (int i = 0; i < arma.size(); i++)
+	{
+		objects.push_back(new Triangle(arma[i], red_specular));
+	}
+	for (int i = 0; i < lucy.size(); i++)
+	{
+		objects.push_back(new Triangle(lucy[i], red_specular));
 	}
 
 	// for (int i = 0; i < arma.size(); i++)
