@@ -192,7 +192,8 @@ public:
 			hit.hit = true;
 			hit.intersection = onPlanePoint;
 			// assuming hit.normal = ray.direction - 2 * (dot(ray.direction, object.triangleNormal)) * ray.direction
-			hit.normal = ray.direction - (2 * n_normal_d * ray.direction);
+			// hit.normal = ray.direction - (2 * n_normal_d * ray.direction);
+			hit.normal = glm::normalize(face.triangleNormal);
 			hit.distance = glm::distance(ray.origin, hit.intersection);
 			hit.object = this;
 		}
@@ -337,6 +338,22 @@ glm::vec3 trace_ray(Ray ray)
 	}
 	return color;
 }
+
+glm::mat3x3 getTranslationMatrix(float xRad, float yRad, float zRad)
+{
+	float cX = cos(xRad);
+	float cY = cos(yRad);
+	float cZ = cos(zRad);
+
+	float sX = sin(xRad);
+	float sY = sin(yRad);
+	float sZ = sin(zRad);
+
+	return glm::mat3x3(
+		cY * cZ, sX * sY * cZ - cX * sZ, cX * sY * cZ + sX * sZ,
+		cY * sZ, sX * sY * sZ + cX * cZ, cX * sY * sZ - sX * cZ,
+		-sY, sX * cY, cX * cY);
+}
 /**
  Function defining the scene
  */
@@ -345,12 +362,15 @@ void sceneDefinition()
 	glm::vec3 bunnyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
 	glm::vec3 armaStartingPos = glm::vec3(-5.0f, -2.0f, 9.0f);
 	glm::vec3 lucyStartingPos = glm::vec3(6.0f, -2.0f, 9.0f);
+	glm::mat3x3 armaRotate = getTranslationMatrix(glm::radians(-15.0f), glm::radians(150.0f), 0.0f);
+	glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
+
 	// glm::vec3 lucyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
 
 	// passing the filepath and 3d object position
-	vector<Face> bunny = loadOBJ("./meshes/bunny.obj", bunnyStartingPos);
-	vector<Face> arma = loadOBJ("./meshes/armadillo.obj", armaStartingPos);
-	vector<Face> lucy = loadOBJ("./meshes/lucy.obj", lucyStartingPos);
+	vector<Face> bunny = loadOBJ("./meshes/bunny.obj", bunnyStartingPos, noRotate);
+	vector<Face> arma = loadOBJ("./meshes/armadillo.obj", armaStartingPos, armaRotate);
+	vector<Face> lucy = loadOBJ("./meshes/lucy.obj", lucyStartingPos, noRotate);
 
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
@@ -371,10 +391,10 @@ void sceneDefinition()
 	green_specular.shininess = 0.0;
 
 	Material white_specular;
-	white_specular.diffuse = glm::vec3(0.96f);
-	white_specular.ambient = glm::vec3(0.07f, 0.09f, 0.07f);
-	white_specular.specular = glm::vec3(0.0);
-	white_specular.shininess = 0.0;
+	white_specular.diffuse = glm::vec3(1.0f, 0.5f, 0.31f);
+	white_specular.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
+	white_specular.specular = glm::vec3(0.5f, 0.5f, 0.5f);
+	white_specular.shininess = 32.0f;
 
 	Material white_wall;
 	white_wall.ambient = glm::vec3(0.2f);
@@ -400,15 +420,15 @@ void sceneDefinition()
 
 	for (int i = 0; i < bunny.size(); i++)
 	{
-		objects.push_back(new Triangle(bunny[i], white_specular));
+		objects.push_back(new Triangle(bunny[i], red_specular));
 	}
 	for (int i = 0; i < arma.size(); i++)
 	{
-		objects.push_back(new Triangle(arma[i], white_specular));
+		objects.push_back(new Triangle(arma[i], blue_specular));
 	}
 	for (int i = 0; i < lucy.size(); i++)
 	{
-		objects.push_back(new Triangle(lucy[i], white_specular));
+		objects.push_back(new Triangle(lucy[i], green_specular));
 	}
 
 	// for (int i = 0; i < arma.size(); i++)
@@ -429,9 +449,9 @@ void sceneDefinition()
 	objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
 	objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
 
-	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.4)));
-	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.4)));
-	lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.4)));
+	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.5)));
+	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.5)));
+	lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.5)));
 }
 
 int main(int argc, const char *argv[])

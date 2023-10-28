@@ -27,7 +27,7 @@ struct Face
 };
 
 static vector<Face>
-loadOBJ(const char *file_name, const glm::vec3 startingPos)
+loadOBJ(const char *file_name, const glm::vec3 startingPos, const glm::mat3x3 rotate)
 {
     vector<glm::vec3> vectors;
     vector<glm::vec3> vectorNormals;
@@ -80,9 +80,9 @@ loadOBJ(const char *file_name, const glm::vec3 startingPos)
             }
             Face face;
             // cout << vectors.size() << endl;
-            face.p1 = vectors[faceVectors[faceVectors.size() - 3] - 1] + startingPos;
-            face.p2 = vectors[faceVectors[faceVectors.size() - 2] - 1] + startingPos;
-            face.p3 = vectors[faceVectors[faceVectors.size() - 1] - 1] + startingPos;
+            face.p1 = (vectors[faceVectors[faceVectors.size() - 3] - 1] * rotate) + startingPos;
+            face.p2 = (vectors[faceVectors[faceVectors.size() - 2] - 1] * rotate) + startingPos;
+            face.p3 = (vectors[faceVectors[faceVectors.size() - 1] - 1] * rotate) + startingPos;
             // if (vectorNormals.size() > 0)
             // {
             //     face.n1 = vectors[faceNormals[0]];
