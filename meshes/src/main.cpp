@@ -200,6 +200,49 @@ public:
 	}
 };
 
+class Plane : public Object
+{
+
+private:
+	glm::vec3 normal;
+	glm::vec3 point;
+
+public:
+	Plane(glm::vec3 point, glm::vec3 normal) : point(point), normal(normal)
+	{
+	}
+	Plane(glm::vec3 point, glm::vec3 normal, Material material) : point(point), normal(normal)
+	{
+		this->material = material;
+	}
+	Hit intersect(Ray ray)
+	{
+
+		Hit hit;
+		hit.hit = false;
+
+		/*
+		 Excercise 1 - Plane-ray intersection
+		 */
+
+		float a = glm::dot(point - ray.origin, normal);
+		float b = glm::dot(ray.direction, normal);
+
+		float t = a / b;
+
+		if (b != 0 && t > 0)
+		{
+			hit.hit = true;
+			hit.intersection = ray.origin + ray.direction * t;
+			hit.normal = glm::normalize(normal);
+			hit.distance = glm::distance(ray.origin, hit.intersection);
+			hit.object = this;
+		}
+
+		return hit;
+	}
+};
+
 /**
  Light class
  */
@@ -299,9 +342,11 @@ glm::vec3 trace_ray(Ray ray)
  */
 void sceneDefinition()
 {
-	glm::vec3 bunnyStartingPos = glm::vec3(0.0f, 3.0f, 9.0f);
-	glm::vec3 armaStartingPos = glm::vec3(0.0f, 6.0f, 9.0f);
-	glm::vec3 lucyStartingPos = glm::vec3(0.0f, 9.0f, 9.0f);
+	glm::vec3 bunnyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
+	glm::vec3 armaStartingPos = glm::vec3(-5.0f, -2.0f, 9.0f);
+	glm::vec3 lucyStartingPos = glm::vec3(6.0f, -2.0f, 9.0f);
+	// glm::vec3 lucyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
+
 	// passing the filepath and 3d object position
 	vector<Face> bunny = loadOBJ("./meshes/bunny.obj", bunnyStartingPos);
 	vector<Face> arma = loadOBJ("./meshes/armadillo.obj", armaStartingPos);
@@ -325,21 +370,45 @@ void sceneDefinition()
 	green_specular.specular = glm::vec3(0.0);
 	green_specular.shininess = 0.0;
 
+	Material white_specular;
+	white_specular.diffuse = glm::vec3(0.96f);
+	white_specular.ambient = glm::vec3(0.07f, 0.09f, 0.07f);
+	white_specular.specular = glm::vec3(0.0);
+	white_specular.shininess = 0.0;
+
+	Material white_wall;
+	white_wall.ambient = glm::vec3(0.2f);
+	white_wall.diffuse = glm::vec3(1.0f);
+	white_wall.specular = glm::vec3(1.0);
+	white_wall.shininess = 100.0;
+
+	Material purple_wall;
+	purple_wall.ambient = glm::vec3(0.1f, 0.01f, 0.0f);
+	purple_wall.diffuse = glm::vec3(0.7f, 0.7f, 1.0f);
+
+	Material pink_wall;
+	pink_wall.diffuse = glm::vec3(1.3f, 0.5f, 0.8f);
+	pink_wall.ambient = glm::vec3(0.03f, 0.01f, 0.0f);
+
+	Material turquoise_wall;
+	turquoise_wall.ambient = glm::vec3(0.01f, 0.0f, 0.1f);
+	turquoise_wall.diffuse = glm::vec3(0.4f, 0.7f, 0.7f);
+
 	// objects.push_back(new Sphere(0.5, glm::vec3(-1.0, -2.5, 6.0), red_specular));
 	// objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
 	// objects.push_back(new Sphere(1.0, glm::vec3(3.0, -2.0, 6.0), green_specular));
 
 	for (int i = 0; i < bunny.size(); i++)
 	{
-		objects.push_back(new Triangle(bunny[i], red_specular));
+		objects.push_back(new Triangle(bunny[i], white_specular));
 	}
 	for (int i = 0; i < arma.size(); i++)
 	{
-		objects.push_back(new Triangle(arma[i], red_specular));
+		objects.push_back(new Triangle(arma[i], white_specular));
 	}
 	for (int i = 0; i < lucy.size(); i++)
 	{
-		objects.push_back(new Triangle(lucy[i], red_specular));
+		objects.push_back(new Triangle(lucy[i], white_specular));
 	}
 
 	// for (int i = 0; i < arma.size(); i++)
@@ -348,9 +417,21 @@ void sceneDefinition()
 	// 	objects.push_back(new Triangle(arma[i], red_specular));
 	// }
 
-	lights.push_back(new Light(glm::vec3(0.0, 26.0, 5.0), glm::vec3(0.4)));
-	lights.push_back(new Light(glm::vec3(0.0, 1.0, 12.0), glm::vec3(0.4)));
-	lights.push_back(new Light(glm::vec3(0.0, 5.0, 1.0), glm::vec3(0.4)));
+	// extending x-axis
+	objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0), pink_wall));
+	objects.push_back(new Plane(glm::vec3(15, 0, 0), glm::vec3(-1, 0, 0), purple_wall));
+
+	// extending y-axis
+	objects.push_back(new Plane(glm::vec3(0, -3, 0), glm::vec3(0, 1, 0), white_wall));
+	objects.push_back(new Plane(glm::vec3(0, 27, 0), glm::vec3(0, -1, 0), white_wall));
+
+	// extending z-axis
+	objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
+	objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
+
+	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.4)));
+	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.4)));
+	lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.4)));
 }
 
 int main(int argc, const char *argv[])
