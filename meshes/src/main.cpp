@@ -159,41 +159,48 @@ public:
 	{
 		this->material = material;
 	}
-
+	/** Implementation of the intersection function*/
 	Hit intersect(Ray ray)
 	{
+
+		// glm::vec3 c = center - ray.origin;
+
+		// float cdotc = glm::dot(c, c);
+		// float cdotd = glm::dot(c, ray.direction);
+		float n_normal_d = glm::dot(face.triangleNormal, ray.direction);
 		Hit hit;
 		hit.hit = false;
-
-		float n_normal_d = glm::dot(face.triangleNormal, ray.direction);
-
-		if (n_normal_d < 0.001f)
+		if (n_normal_d < 0.0001f)
 		{
 			return hit;
 		}
-
-		float t = glm::dot(face.triangleNormal, face.p1 - ray.origin) / n_normal_d;
+		glm::vec3 distanceVector = face.p1 - ray.origin;
+		float D = glm::dot(face.triangleNormal, face.p1) * -1;
+		float t = glm::dot(face.triangleNormal, distanceVector) / n_normal_d;
 		glm::vec3 onPlanePoint = ray.origin + ray.direction * t;
-
-		// Barycentric coordinates calculation
+		// if ray lands outside of the triangle, the sum of residue triangles should exceed the area of given triangle.
+		// under this assumption
 		glm::vec3 edge0 = face.p2 - face.p1;
-		glm::vec3 edge1 = face.p3 - face.p1;
+		glm::vec3 edge1 = face.p3 - face.p2;
+		glm::vec3 edge2 = face.p1 - face.p3;
 		glm::vec3 c0 = onPlanePoint - face.p1;
+		glm::vec3 c1 = onPlanePoint - face.p2;
+		glm::vec3 c2 = onPlanePoint - face.p3;
 
-		float denom = glm::dot(edge0, edge0) * glm::dot(edge1, edge1) - glm::dot(edge0, edge1) * glm::dot(edge0, edge1);
-		float alpha = (glm::dot(edge1, edge1) * glm::dot(c0, edge0) - glm::dot(edge0, edge1) * glm::dot(c0, edge1)) / denom;
-		float beta = (glm::dot(edge0, edge0) * glm::dot(c0, edge1) - glm::dot(edge0, edge1) * glm::dot(c0, edge0)) / denom;
-		float gamma = 1.0f - alpha - beta;
-
-		if (alpha >= 0 && beta >= 0 && gamma >= 0)
+		if (glm::dot(face.triangleNormal, glm::cross(edge0, c0)) >= 0 && glm::dot(face.triangleNormal, glm::cross(edge1, c1)) >= 0 && glm::dot(face.triangleNormal, glm::cross(edge2, c2)) >= 0)
 		{
 			hit.hit = true;
 			hit.intersection = onPlanePoint;
-			hit.normal = glm::normalize(alpha * face.n1 + beta * face.n2 + gamma * face.n3);
+			// assuming hit.normal = ray.direction - 2 * (dot(ray.direction, object.triangleNormal)) * ray.direction
+			// hit.normal = ray.direction - (2 * n_normal_d * ray.direction);
+			float alpha = glm::determinant(glm::mat3x3(onPlanePoint, face.p2, face.p3)) / face.det;
+			float beta = glm::determinant(glm::mat3x3(face.p1, onPlanePoint, face.p3)) / face.det;
+			float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
+
+			hit.normal = alpha * face.n1 + beta * face.n2 + gamma * face.n3;
 			hit.distance = glm::distance(ray.origin, hit.intersection);
 			hit.object = this;
 		}
-
 		return hit;
 	}
 };
@@ -357,17 +364,17 @@ glm::mat3x3 getTranslationMatrix(float xRad, float yRad, float zRad)
 void sceneDefinition()
 {
 	glm::vec3 bunnyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
-	glm::vec3 armaStartingPos = glm::vec3(-5.0f, -2.0f, 9.0f);
-	glm::vec3 lucyStartingPos = glm::vec3(6.0f, -2.0f, 9.0f);
+	glm::vec3 armaStartingPos = glm::vec3(-3.0f, -2.0f, 9.0f);
+	glm::vec3 lucyStartingPos = glm::vec3(3.0f, -2.0f, 9.0f);
 	glm::mat3x3 armaRotate = getTranslationMatrix(glm::radians(-15.0f), glm::radians(150.0f), 0.0f);
 	glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
-	// glm::vec3 lucyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
 
-	// passing the filepath and 3d object position
-	vector<Face> bunny = loadOBJ("./meshes/bunny.obj", bunnyStartingPos, noRotate);
-	vector<Face> arma = loadOBJ("./meshes/armadillo.obj", armaStartingPos, armaRotate);
-	vector<Face> lucy = loadOBJ("./meshes/lucy.obj", lucyStartingPos, noRotate);
+	// passing the filepath and 3d object position and rotation
+	vector<Face> bunny = loadOBJ("./meshes/bunny_with_normals.obj", bunnyStartingPos, noRotate);
+	vector<Face> arma = loadOBJ("./meshes/armadillo_with_normals.obj", armaStartingPos, armaRotate);
+	vector<Face> lucy = loadOBJ("./meshes/lucy_with_normals.obj", lucyStartingPos, noRotate);
 
+	// vector<Face> dummies = loadOBJ("./meshes/dummy.obj", glm::vec3(0), noRotate);
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
 	red_specular.ambient = glm::vec3(0.01f, 0.03f, 0.03f);
@@ -414,17 +421,23 @@ void sceneDefinition()
 	// objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
 	// objects.push_back(new Sphere(1.0, glm::vec3(3.0, -2.0, 6.0), green_specular));
 
-	// for (int i = 0; i < bunny.size(); i++)
-	// {
-	// 	objects.push_back(new Triangle(bunny[i], red_specular));
-	// }
+	for (int i = 0; i < bunny.size(); i++)
+	{
+		objects.push_back(new Triangle(bunny[i], red_specular));
+	}
 	for (int i = 0; i < arma.size(); i++)
 	{
-		objects.push_back(new Triangle(arma[i], blue_specular));
+		objects.push_back(new Triangle(arma[i], red_specular));
 	}
-	// for (int i = 0; i < lucy.size(); i++)
+	for (int i = 0; i < lucy.size(); i++)
+	{
+		objects.push_back(new Triangle(lucy[i], red_specular));
+	}
+
+	// for (int i = 0; i < arma.size(); i++)
 	// {
-	// 	objects.push_back(new Triangle(lucy[i], green_specular));
+	// 	arma.
+	// 	objects.push_back(new Triangle(arma[i], red_specular));
 	// }
 
 	// extending x-axis
@@ -439,9 +452,9 @@ void sceneDefinition()
 	objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
 	objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
 
-	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.5)));
-	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.5)));
-	lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.5)));
+	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
+	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
+	lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.3)));
 }
 
 int main(int argc, const char *argv[])
