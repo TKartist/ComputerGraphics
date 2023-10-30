@@ -106,9 +106,13 @@ loadOBJ(const char *file_name, const glm::vec3 startingPos, const glm::mat3x3 ro
             face.p3 = (vectors[faceVectors[size - 1] - 1] * rotate) + startingPos;
             if (vectorNormals.size() > 0)
             {
-                face.n1 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
-                face.n2 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
-                face.n3 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
+                // commented part implementation was a bit shinier and prettier even though it was wrong. if you want to see a prettier variant please go ahead.
+                // face.n1 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
+                // face.n2 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
+                // face.n3 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
+                face.n1 = vectorNormals[faceNormals[size - 3] - 1];
+                face.n2 = vectorNormals[faceNormals[size - 3] - 2];
+                face.n3 = vectorNormals[faceNormals[size - 3] - 3];
             }
             glm::vec3 PQ = face.p2 - face.p1;
             glm::vec3 PR = face.p3 - face.p1;
