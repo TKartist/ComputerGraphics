@@ -72,74 +72,6 @@ public:
 	}
 };
 
-/**
- Implementation of the class Object for sphere shape.
- */
-class Sphere : public Object
-{
-private:
-	float radius;	  ///< Radius of the sphere
-	glm::vec3 center; ///< Center of the sphere
-
-public:
-	/**
-	 The constructor of the sphere
-	 @param radius Radius of the sphere
-	 @param center Center of the sphere
-	 @param color Color of the sphere
-	 */
-	Sphere(float radius, glm::vec3 center, glm::vec3 color) : radius(radius), center(center)
-	{
-		this->color = color;
-	}
-	Sphere(float radius, glm::vec3 center, Material material) : radius(radius), center(center)
-	{
-		this->material = material;
-	}
-	/** Implementation of the intersection function*/
-	Hit intersect(Ray ray)
-	{
-
-		glm::vec3 c = center - ray.origin;
-
-		float cdotc = glm::dot(c, c);
-		float cdotd = glm::dot(c, ray.direction);
-
-		Hit hit;
-
-		float D = 0;
-		if (cdotc > cdotd * cdotd)
-		{
-			D = sqrt(cdotc - cdotd * cdotd);
-		}
-		if (D <= radius)
-		{
-			hit.hit = true;
-			float t1 = cdotd - sqrt(radius * radius - D * D);
-			float t2 = cdotd + sqrt(radius * radius - D * D);
-
-			float t = t1;
-			if (t < 0)
-				t = t2;
-			if (t < 0)
-			{
-				hit.hit = false;
-				return hit;
-			}
-
-			hit.intersection = ray.origin + t * ray.direction;
-			hit.normal = glm::normalize(hit.intersection - center);
-			hit.distance = glm::distance(ray.origin, hit.intersection);
-			hit.object = this;
-		}
-		else
-		{
-			hit.hit = false;
-		}
-		return hit;
-	}
-};
-
 class Triangle : public Object
 {
 private:
@@ -162,11 +94,6 @@ public:
 	/** Implementation of the intersection function*/
 	Hit intersect(Ray ray)
 	{
-
-		// glm::vec3 c = center - ray.origin;
-
-		// float cdotc = glm::dot(c, c);
-		// float cdotd = glm::dot(c, ray.direction);
 		float n_normal_d = glm::dot(face.triangleNormal, ray.direction);
 		Hit hit;
 		hit.hit = false;
@@ -178,8 +105,7 @@ public:
 		float D = glm::dot(face.triangleNormal, face.p1) * -1;
 		float t = glm::dot(face.triangleNormal, distanceVector) / n_normal_d;
 		glm::vec3 onPlanePoint = ray.origin + ray.direction * t;
-		// if ray lands outside of the triangle, the sum of residue triangles should exceed the area of given triangle.
-		// under this assumption
+
 		glm::vec3 edge0 = face.p2 - face.p1;
 		glm::vec3 edge1 = face.p3 - face.p2;
 		glm::vec3 edge2 = face.p1 - face.p3;
@@ -191,8 +117,7 @@ public:
 		{
 			hit.hit = true;
 			hit.intersection = onPlanePoint;
-			// assuming hit.normal = ray.direction - 2 * (dot(ray.direction, object.triangleNormal)) * ray.direction
-			// hit.normal = ray.direction - (2 * n_normal_d * ray.direction);
+
 			float alpha = glm::determinant(glm::mat3x3(onPlanePoint, face.p2, face.p3)) / face.det;
 			float beta = glm::determinant(glm::mat3x3(face.p1, onPlanePoint, face.p3)) / face.det;
 			float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
@@ -225,10 +150,6 @@ public:
 
 		Hit hit;
 		hit.hit = false;
-
-		/*
-		 Excercise 1 - Plane-ray intersection
-		 */
 
 		float a = glm::dot(point - ray.origin, normal);
 		float b = glm::dot(ray.direction, normal);
@@ -280,15 +201,6 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec3 view_direction
 
 	glm::vec3 color(0.0);
 
-	/*
-
-	 Assignment 2
-
-	 Phong model.
-	 Your code should implement a loop over all the lightsources in the array lights and agredate the contribution of each of them to the final color of the object.
-	 Outside of the loop add also the ambient component from ambient_light.
-
-	*/
 	for (Light *light : lights)
 	{
 		// getting diffuse
@@ -381,23 +293,11 @@ void sceneDefinition()
 	red_specular.specular = glm::vec3(0.5);
 	red_specular.shininess = 10.0;
 
-	Material blue_specular;
-	blue_specular.diffuse = glm::vec3(0.7f, 0.7f, 1.0f);
-	blue_specular.ambient = glm::vec3(0.07f, 0.07f, 0.1f);
-	blue_specular.specular = glm::vec3(0.6);
-	blue_specular.shininess = 100.0;
-
 	Material green_specular;
 	green_specular.diffuse = glm::vec3(0.7f, 0.9f, 0.7f);
 	green_specular.ambient = glm::vec3(0.07f, 0.09f, 0.07f);
 	green_specular.specular = glm::vec3(0.0);
 	green_specular.shininess = 0.0;
-
-	Material white_specular;
-	white_specular.diffuse = glm::vec3(1.0f, 0.5f, 0.31f);
-	white_specular.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
-	white_specular.specular = glm::vec3(0.5f, 0.5f, 0.5f);
-	white_specular.shininess = 32.0f;
 
 	Material white_wall;
 	white_wall.ambient = glm::vec3(0.2f);
@@ -412,14 +312,6 @@ void sceneDefinition()
 	Material pink_wall;
 	pink_wall.diffuse = glm::vec3(1.3f, 0.5f, 0.8f);
 	pink_wall.ambient = glm::vec3(0.03f, 0.01f, 0.0f);
-
-	Material turquoise_wall;
-	turquoise_wall.ambient = glm::vec3(0.01f, 0.0f, 0.1f);
-	turquoise_wall.diffuse = glm::vec3(0.4f, 0.7f, 0.7f);
-
-	// objects.push_back(new Sphere(0.5, glm::vec3(-1.0, -2.5, 6.0), red_specular));
-	// objects.push_back(new Sphere(1.0, glm::vec3(1.0, -2.0, 8.0), blue_specular));
-	// objects.push_back(new Sphere(1.0, glm::vec3(3.0, -2.0, 6.0), green_specular));
 
 	for (int i = 0; i < bunny.size(); i++)
 	{
