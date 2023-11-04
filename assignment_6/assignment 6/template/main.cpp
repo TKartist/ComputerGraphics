@@ -346,8 +346,12 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec2 uv, glm::vec3 
  @param ray Ray that should be traced through the scene
  @return Color at the intersection point
  */
-glm::vec3 trace_ray(Ray ray)
+glm::vec3 trace_ray(Ray ray, int depth)
 {
+	if (depth <= 0)
+	{
+		return glm::vec3(0.0f);
+	}
 
 	Hit closest_hit;
 
@@ -365,15 +369,54 @@ glm::vec3 trace_ray(Ray ray)
 
 	if (closest_hit.hit)
 	{
-		color = PhongModel(closest_hit.intersection, closest_hit.normal, closest_hit.uv, glm::normalize(-ray.direction), closest_hit.object->getMaterial());
 
+		glm::vec3 normalizedRayDirection = glm::normalize(-ray.direction);
+		color = PhongModel(closest_hit.intersection, closest_hit.normal, closest_hit.uv, normalizedRayDirection, closest_hit.object->getMaterial());
 		Material material = closest_hit.object->getMaterial();
 		if (material.reflectionLevel > 0.0)
 		{
 			glm::vec3 reflection_direction = glm::reflect(ray.direction, closest_hit.normal);
 			Ray reflection_ray(closest_hit.intersection + closest_hit.normal * 0.001f, reflection_direction);
-			glm::vec3 reflection_color = trace_ray(reflection_ray);
+			glm::vec3 reflection_color = trace_ray(reflection_ray, depth - 1);
 			color = color * (1.0f - material.reflectionLevel) + reflection_color * material.reflectionLevel;
+		}
+		if (material.refractiveLevel > 0.0)
+		{
+			color = glm::vec3(0.0f);
+			glm::vec3 normalizedClosestNormal = glm::normalize(closest_hit.normal);
+			float cos_theta1 = glm::dot(normalizedClosestNormal, normalizedRayDirection);
+			float refractiveIndex = 1.0 / material.refractiveLevel;
+			float n1 = 1.0;
+			float n2 = material.refractiveLevel;
+
+			if (cos_theta1 > 0) // handling entering and exiting
+			{
+				refractiveIndex = material.refractiveLevel;
+				normalizedClosestNormal = -normalizedClosestNormal;
+				n1 = n2;
+				n2 = 1.0;
+			}
+
+			glm::vec3 reflected_direction = glm::reflect(normalizedRayDirection, normalizedClosestNormal);
+			Ray reflected_ray(closest_hit.intersection + 0.0001f * reflected_direction, reflected_direction);
+			glm::vec3 reflection_color = trace_ray(reflected_ray, depth - 1);
+			glm::vec3 refractive_direction = glm::refract(normalizedRayDirection, normalizedClosestNormal, refractiveIndex);
+
+			float cos_theta2 = glm::dot(-normalizedClosestNormal, refractive_direction);
+
+			float reflectance = 0.5 * (pow((n1 * cos_theta1 - n2 * cos_theta2) / (n1 * cos_theta1 + n2 * cos_theta2), 2) + pow((n1 * cos_theta2 - n2 * cos_theta1) / (n1 * cos_theta2 + n2 * cos_theta1), 2));
+			float refractance = 1.0 - reflectance;
+
+			color += reflection_color * reflectance * 1.0f;
+
+			if (glm::length(refractive_direction) > 0.0)
+			{
+				Ray refractive_ray(closest_hit.intersection - 0.001f * normalizedClosestNormal, refractive_direction);
+				glm::vec3 refraction_color = trace_ray(refractive_ray, depth - 1);
+
+				// Apply Fresnel effect: mix reflected and refracted colors based on reflectance
+				color += refraction_color * refractance * material.refractiveLevel;
+			}
 		}
 	}
 	else
@@ -382,6 +425,7 @@ glm::vec3 trace_ray(Ray ray)
 	}
 	return color;
 }
+
 /**
  Function defining the scene
  */
@@ -399,14 +443,14 @@ void sceneDefinition()
 	red_specular.shininess = 10.0;
 
 	Material blue_specular;
-	blue_specular.ambient = glm::vec3(0.02f, 0.02f, 0.1f);
-	blue_specular.diffuse = glm::vec3(0.2f, 0.2f, 1.0f);
-	blue_specular.specular = glm::vec3(0.6);
-	blue_specular.shininess = 100.0;
 	blue_specular.reflectionLevel = 0.8f;
+
+	Material refractive_material;
+	refractive_material.refractiveLevel = 2.0f;
 
 	objects.push_back(new Sphere(1.0, glm::vec3(1, -2, 8), blue_specular));
 	objects.push_back(new Sphere(0.5, glm::vec3(-1, -2.5, 6), red_specular));
+	objects.push_back(new Sphere(2.0, glm::vec3(-3.0, -1.0, 8.0), refractive_material));
 	// objects.push_back(new Sphere(1.0, glm::vec3(3,-2,6), green_diffuse));
 
 	// Textured sphere
@@ -500,7 +544,7 @@ int main(int argc, const char *argv[])
 
 			Ray ray(origin, direction);
 
-			image.setPixel(i, j, toneMapping(trace_ray(ray)));
+			image.setPixel(i, j, toneMapping(trace_ray(ray, 3)));
 		}
 
 	t = clock() - t;
