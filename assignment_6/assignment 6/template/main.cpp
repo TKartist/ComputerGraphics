@@ -366,6 +366,15 @@ glm::vec3 trace_ray(Ray ray)
 	if (closest_hit.hit)
 	{
 		color = PhongModel(closest_hit.intersection, closest_hit.normal, closest_hit.uv, glm::normalize(-ray.direction), closest_hit.object->getMaterial());
+
+		Material material = closest_hit.object->getMaterial();
+		if (material.reflectionLevel > 0.0)
+		{
+			glm::vec3 reflection_direction = glm::reflect(ray.direction, closest_hit.normal);
+			Ray reflection_ray(closest_hit.intersection + closest_hit.normal * 0.001f, reflection_direction);
+			glm::vec3 reflection_color = trace_ray(reflection_ray);
+			color = color * (1.0f - material.reflectionLevel) + reflection_color * material.reflectionLevel;
+		}
 	}
 	else
 	{
@@ -394,6 +403,7 @@ void sceneDefinition()
 	blue_specular.diffuse = glm::vec3(0.2f, 0.2f, 1.0f);
 	blue_specular.specular = glm::vec3(0.6);
 	blue_specular.shininess = 100.0;
+	blue_specular.reflectionLevel = 0.8f;
 
 	objects.push_back(new Sphere(1.0, glm::vec3(1, -2, 8), blue_specular));
 	objects.push_back(new Sphere(0.5, glm::vec3(-1, -2.5, 6), red_specular));
