@@ -345,16 +345,7 @@ float fresnelReflectance(float cosThetaI, float refractiveIndex1, float refracti
 	float r0 = ((refractiveIndex1 - refractiveIndex2) / (refractiveIndex1 + refractiveIndex2));
 	r0 *= r0;
 
-	float cosThetaT = sqrt(1.0 - (1.0 - cosThetaI * cosThetaI) / (refractiveIndex2 * refractiveIndex2));
-
-	float rPar = ((refractiveIndex1 * cosThetaI - refractiveIndex2 * cosThetaT) /
-				  (refractiveIndex1 * cosThetaI + refractiveIndex2 * cosThetaT));
-	float rPerp = ((refractiveIndex1 * cosThetaT - refractiveIndex2 * cosThetaI) /
-				   (refractiveIndex1 * cosThetaT + refractiveIndex2 * cosThetaI));
-
-	float reflectance = 0.5f * (rPar * rPar + rPerp * rPerp);
-
-	return reflectance + (1.0f - reflectance) * r0;
+	return r0 + (1.0f - r0) * pow(1.0f - cosThetaI, 5);
 }
 
 /**
@@ -389,7 +380,6 @@ glm::vec3 trace_ray(Ray ray, int depth)
 		glm::vec3 normalizedRayDirection = glm::normalize(-ray.direction);
 		color = PhongModel(closest_hit.intersection, closest_hit.normal, closest_hit.uv, normalizedRayDirection, closest_hit.object->getMaterial());
 		Material material = closest_hit.object->getMaterial();
-
 		if (material.reflectionLevel > 0.0)
 		{
 			glm::vec3 reflection_direction = glm::reflect(ray.direction, closest_hit.normal);
@@ -399,7 +389,21 @@ glm::vec3 trace_ray(Ray ray, int depth)
 		}
 		if (material.refractiveLevel > 0.0)
 		{
-			float cos_theta =
+			float cos_theta_i = glm::dot(normalizedRayDirection, closest_hit.normal);
+			bool entering = cos_theta_i > 0;
+			float n1 = entering ? 1.0f : material.refractiveLevel; // Assuming air to material transition
+			float n2 = entering ? material.refractiveLevel : 1.0f; // Material to air if exiting
+			float refractiveIndexRatio = n1 / n2;
+			glm::vec3 refraction_dir = glm::refract(ray.direction, entering ? closest_hit.normal : -closest_hit.normal, refractiveIndexRatio);
+			Ray refraction_ray(closest_hit.intersection + 0.001f * refraction_dir, refraction_dir);
+
+			glm::vec3 refraction = trace_ray(refraction_ray, depth - 1);
+			float cos_theta_1 = fabs(cos_theta_i);
+
+			float reflectance = fresnelReflectance(cos_theta_1, n1, n2);
+			float refractance = 1.0f - reflectance;
+
+			color = color * reflectance + refractance * refraction;
 		}
 	}
 	else
@@ -430,6 +434,7 @@ void sceneDefinition()
 
 	Material refractive_material;
 	refractive_material.refractiveLevel = 2.0f;
+	refractive_material.reflectionLevel = 1.0f;
 
 	objects.push_back(new Sphere(1.0, glm::vec3(1, -2, 8), blue_specular));
 	objects.push_back(new Sphere(0.5, glm::vec3(-1, -2.5, 6), red_specular));
@@ -527,7 +532,7 @@ int main(int argc, const char *argv[])
 
 			Ray ray(origin, direction);
 
-			image.setPixel(i, j, toneMapping(trace_ray(ray, 5)));
+			image.setPixel(i, j, toneMapping(trace_ray(ray, 3)));
 		}
 
 	t = clock() - t;
