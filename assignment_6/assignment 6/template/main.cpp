@@ -340,11 +340,9 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec2 uv, glm::vec3 
 	color += ambient_light * material.ambient;
 	return color;
 }
-float fresnelReflectance(float cosThetaI, float refractiveIndex1, float refractiveIndex2)
+float fresnelReflectance(float cosThetaI, float n1, float n2)
 {
-	float r0 = ((refractiveIndex1 - refractiveIndex2) / (refractiveIndex1 + refractiveIndex2));
-	r0 *= r0;
-
+	float r0 = pow(((n1 - n2) / (n1 + n2)), 2);
 	return r0 + (1.0f - r0) * pow(1.0f - cosThetaI, 5);
 }
 
