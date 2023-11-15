@@ -84,16 +84,43 @@ public:
         inverseTransformationMatrix = glm::inverse(matrix);
         normalMatrix = glm::transpose(inverseTransformationMatrix);
     }
+
+    Ray localRay(Ray ray)
+    {
+        glm::vec4 transformedOrigin = inverseTransformationMatrix * glm::vec4(ray.origin, 1.0f);
+        glm::vec4 transformedDirection = inverseTransformationMatrix * glm::vec4(ray.direction, 0.0f);
+
+        ray.origin = glm::vec3(transformedOrigin);
+        ray.direction = glm::normalize(glm::vec3(transformedDirection));
+        return ray;
+    }
+
+    Hit globalHit(Hit hit, glm::vec3 origin)
+    {
+        if (!hit.hit)
+        {
+            return hit;
+        }
+        Hit global = hit;
+        glm::vec3 intersects = hit.intersection;
+        global.intersection = glm::vec3(transformationMatrix * glm::vec4(intersects, 1.0));
+        global.normal = glm::normalize(glm::vec3(transpose(inverseTransformationMatrix) * glm::vec4(intersects, 0.0f)));
+        global.distance = glm::distance(origin, global.intersection);
+        return global;
+    }
 };
 
+/**
+ Implementation of the class Object for sphere shape.
+ */
 /**
  Implementation of the class Object for sphere shape.
  */
 class Sphere : public Object
 {
 private:
-    float radius;     ///< Radius of the sphere
-    glm::vec3 center; ///< Center of the sphere
+    float radius = 1.0f;                ///< Radius of the sphere
+    glm::vec3 center = glm::vec3(0.0f); ///< Center of the sphere
 
 public:
     /**
@@ -102,11 +129,11 @@ public:
      @param center Center of the sphere
      @param color Color of the sphere
      */
-    Sphere(float radius, glm::vec3 center, glm::vec3 color) : radius(radius), center(center)
+    Sphere(glm::vec3 color)
     {
         this->color = color;
     }
-    Sphere(float radius, glm::vec3 center, Material material) : radius(radius), center(center)
+    Sphere(Material material)
     {
         this->material = material;
     }
@@ -114,46 +141,47 @@ public:
     Hit intersect(Ray ray)
     {
 
-        glm::vec3 c = center - ray.origin;
-
-        float cdotc = glm::dot(c, c);
-        float cdotd = glm::dot(c, ray.direction);
-
         Hit hit;
+        hit.hit = false;
+        glm::vec3 o = ray.origin;
+        Ray local = localRay(ray);
 
-        float D = 0;
-        if (cdotc > cdotd * cdotd)
+        glm::vec3 c = center - local.origin;
+
+        float a = glm::dot(c, local.direction);
+
+        float D_squared = glm::dot(c, c) - a * a;
+        float D = sqrt(D_squared);
+
+        float closest_t;
+        if (D > radius)
         {
-            D = sqrt(cdotc - cdotd * cdotd);
+            return hit;
         }
-        if (D <= radius)
+        else if (D < radius)
         {
-            hit.hit = true;
-            float t1 = cdotd - sqrt(radius * radius - D * D);
-            float t2 = cdotd + sqrt(radius * radius - D * D);
-
-            float t = t1;
-            if (t < 0)
-                t = t2;
-            if (t < 0)
-            {
-                hit.hit = false;
-                return hit;
-            }
-
-            hit.intersection = ray.origin + t * ray.direction;
-            hit.normal = glm::normalize(hit.intersection - center);
-            hit.distance = glm::distance(ray.origin, hit.intersection);
-            hit.object = this;
-
-            hit.uv.s = (asin(hit.normal.y) + M_PI / 2) / M_PI;
-            hit.uv.t = (atan2(hit.normal.z, hit.normal.x) + M_PI) / (2 * M_PI);
+            float t1 = a - sqrt(radius * radius - D_squared);
+            closest_t = t1 >= 0 ? t1 : a + sqrt(radius * radius - D_squared);
         }
         else
         {
-            hit.hit = false;
+            closest_t = a + sqrt(radius * radius - D_squared);
         }
-        return hit;
+        if (closest_t < 0)
+        {
+            return hit;
+        }
+
+        hit.hit = true;
+        hit.distance = closest_t;
+        hit.intersection = local.origin + local.direction * hit.distance;
+        hit.normal = glm::normalize(hit.intersection - center);
+        hit.object = this;
+
+        hit.uv.x = 0.5 - asin(hit.normal.y) / M_PI;
+        hit.uv.y = 2 * (0.5 + atan2(hit.normal.z, hit.normal.x) / (2 * M_PI));
+
+        return globalHit(hit, o);
     }
 };
 
@@ -434,16 +462,33 @@ void sceneDefinition(int x)
     refractive_material.refractiveLevel = 2.0f;
     refractive_material.reflectionLevel = 1.0f;
 
-    objects.push_back(new Sphere(1.0, glm::vec3(1, -2, 8), blue_specular));
-    objects.push_back(new Sphere(0.5, glm::vec3(-1, -2.5, 6), red_specular));
-    objects.push_back(new Sphere(2.0, glm::vec3(-3.0, -1.0, 8.0), refractive_material));
-    // objects.push_back(new Sphere(1.0, glm::vec3(3,-2,6), green_diffuse));
+    double height = x <= 60 ? -1.0 + (2.0 / 60 * x) : 1 - (2.0 / 60 * (x % 60));
 
+    glm::mat4 sphereRotation = glm::rotate(glm::radians(0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+
+    glm::mat4 s1m = glm::translate(glm::mat4(1.0), glm::vec3(1, -2, 8)) * glm::scale(glm::mat4(1.0), glm::vec3(1)) * sphereRotation;
+    Sphere *s1 = new Sphere(blue_specular);
+    s1->setTransformation(s1m);
+    objects.push_back(s1);
+    glm::mat4 s2m = glm::translate(glm::mat4(1.0), glm::vec3(-1, -2.5, 6)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5)) * sphereRotation;
+    Sphere *s2 = new Sphere(red_specular);
+    s2->setTransformation(s2m);
+    objects.push_back(s2);
     // Textured sphere
-
     Material textured;
     textured.texture = &rainbowTexture;
-    objects.push_back(new Sphere(7.0, glm::vec3(-6, 4, 23), textured));
+    glm::mat4 s3m = glm::translate(glm::mat4(1.0), glm::vec3(-6, 4, 23)) * glm::scale(glm::mat4(1.0), glm::vec3(7.0)) * sphereRotation;
+    Sphere *s3 = new Sphere(textured);
+    s3->setTransformation(s3m);
+    objects.push_back(s3);
+
+    glm::mat4 s4m = glm::translate(glm::mat4(1.0), glm::vec3(-3.0, height, 8.0)) * glm::scale(glm::mat4(1.0), glm::vec3(2.0)) * sphereRotation;
+    Sphere *s4 = new Sphere(refractive_material);
+    s4->setTransformation(s4m);
+    objects.push_back(s4);
+
+    // objects.push_back(new Sphere(2.0, glm::vec3(-3.0, height, 8.0), refractive_material));
+    // objects.push_back(new Sphere(1.0, glm::vec3(3,-2,6), green_diffuse));
 
     // Planes
     Material red_diffuse;
@@ -468,19 +513,47 @@ void sceneDefinition(int x)
     yellow_specular.specular = glm::vec3(1.0);
     yellow_specular.shininess = 100.0;
 
-    Cone *cone = new Cone(yellow_specular);
-    glm::mat4 translationMatrix = glm::translate(glm::vec3(5, 9, 14));
-    glm::mat4 scalingMatrix = glm::scale(glm::vec3(3.0f, 12.0f, 3.0f));
-    glm::mat4 rotationMatrix = glm::rotate(glm::radians(180.0f), glm::vec3(1, 0, 0));
-    cone->setTransformation(translationMatrix * scalingMatrix * rotationMatrix);
-    objects.push_back(cone);
+    // Cone *cone = new Cone(yellow_specular);
+    // glm::mat4 translationMatrix = glm::translate(glm::vec3(5, 9, 14));
+    // glm::mat4 scalingMatrix = glm::scale(glm::vec3(3.0f, 12.0f, 3.0f));
+    // glm::mat4 rotationMatrix = glm::rotate(glm::radians(180.0f), glm::vec3(1, 0, 0));
+    // cone->setTransformation(translationMatrix * scalingMatrix * rotationMatrix);
+    // objects.push_back(cone);
+    double y_scale = 3.0;
+    double y_height = 3.0;
+    if (x < 50)
+    {
+        y_height = y_height - (3.0 / 50 * x);
+        cout << "0" << endl;
+    }
+    else if (x >= 50 && x < 60)
+    {
+        double change = 0.4 / 10 * remainder(x, 50);
+        y_height = 0 - change / 2;
+        y_scale = 3.0 - change;
+    }
+    else if (x >= 60 && x < 70)
+    {
+        double change = 0.4 / 10 * remainder(x, 60);
+        y_height = -0.2 + change / 2;
+        y_scale = 2.7 + change;
+    }
+    else if (70 <= x && x < 121)
+    {
+        y_height = 0 + (3.0 / 50 * abs(remainder(x, 70)));
+    }
 
-    Cone *cone2 = new Cone(green_diffuse);
-    translationMatrix = glm::translate(glm::vec3(6, -3, 7));
-    scalingMatrix = glm::scale(glm::vec3(1.0f, 3.0f, 1.0f));
-    rotationMatrix = glm::rotate(glm::atan(3.0f), glm::vec3(0, 0, 1));
-    cone2->setTransformation(translationMatrix * rotationMatrix * scalingMatrix);
-    objects.push_back(cone2);
+    glm::mat4 s5m = glm::translate(glm::mat4(1.0), glm::vec3(5.0, y_height, 14.0)) * glm::scale(glm::mat4(1.0), glm::vec3(3.0, y_scale, 3.0)) * sphereRotation;
+    Sphere *s5 = new Sphere(blue_specular);
+    s5->setTransformation(s5m);
+    objects.push_back(s5);
+
+    // Cone *cone2 = new Cone(green_diffuse);
+    // glm::mat4 translationMatrix = glm::translate(glm::vec3(6, -3, 7));
+    // glm::mat4 scalingMatrix = glm::scale(glm::vec3(1.0f, 3.0f, 1.0f));
+    // glm::mat4 rotationMatrix = glm::rotate(glm::atan(3.0f), glm::vec3(0, 0, 1));
+    // cone2->setTransformation(translationMatrix * rotationMatrix * scalingMatrix);
+    // objects.push_back(cone2);
 
     lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(1.0, 1.0, 1.0)));
     lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.1)));
@@ -508,7 +581,7 @@ int main(int argc, const char *argv[])
     int height = 768; // height of the image
     float fov = 90;   // field of view
 
-    if (argv[2] == nullptr)
+    if (argv[2])
     {
         int x = stoi(argv[2]);
         sceneDefinition(x); // Let's define a scene
@@ -547,7 +620,7 @@ int main(int argc, const char *argv[])
     cout << "I could render at " << (float)CLOCKS_PER_SEC / ((float)t) << " frames per second." << endl;
 
     // Writing the final results of the rendering
-    if (argc == 2)
+    if (argc > 2)
     {
         image.writeImage(argv[1]);
     }
