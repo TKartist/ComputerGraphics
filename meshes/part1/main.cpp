@@ -123,6 +123,7 @@ public:
 			float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
 
 			hit.normal = alpha * face.n1 + beta * face.n2 + gamma * face.n3;
+			// hit.normal = glm::normalize(face.triangleNormal);
 			hit.distance = glm::distance(ray.origin, hit.intersection);
 			hit.object = this;
 		}
@@ -282,9 +283,9 @@ void sceneDefinition()
 	glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
 
 	// passing the filepath and 3d object position and rotation
-	vector<Face> bunny = loadOBJ("./meshes/bunny_with_normals.obj", bunnyStartingPos, noRotate);
-	vector<Face> arma = loadOBJ("./meshes/armadillo_with_normals.obj", armaStartingPos, armaRotate);
-	vector<Face> lucy = loadOBJ("./meshes/lucy_with_normals.obj", lucyStartingPos, noRotate);
+	vector<Face> bunny = loadOBJ("./meshes/bunny_small.obj", bunnyStartingPos, noRotate);
+	// vector<Face> arma = loadOBJ("./meshes/armadillo_with_normals.obj", armaStartingPos, armaRotate);
+	// vector<Face> lucy = loadOBJ("./meshes/lucy_with_normals.obj", lucyStartingPos, noRotate);
 
 	// vector<Face> dummies = loadOBJ("./meshes/dummy.obj", glm::vec3(0), noRotate);
 	Material red_specular;
@@ -317,14 +318,14 @@ void sceneDefinition()
 	{
 		objects.push_back(new Triangle(bunny[i], red_specular));
 	}
-	for (int i = 0; i < arma.size(); i++)
-	{
-		objects.push_back(new Triangle(arma[i], red_specular));
-	}
-	for (int i = 0; i < lucy.size(); i++)
-	{
-		objects.push_back(new Triangle(lucy[i], red_specular));
-	}
+	// for (int i = 0; i < arma.size(); i++)
+	// {
+	// 	objects.push_back(new Triangle(arma[i], red_specular));
+	// }
+	// for (int i = 0; i < lucy.size(); i++)
+	// {
+	// 	objects.push_back(new Triangle(lucy[i], red_specular));
+	// }
 
 	// for (int i = 0; i < arma.size(); i++)
 	// {

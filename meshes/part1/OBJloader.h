@@ -117,7 +117,7 @@ loadOBJ(const char *file_name, const glm::vec3 startingPos, const glm::mat3x3 ro
             glm::vec3 PQ = face.p2 - face.p1;
             glm::vec3 PR = face.p3 - face.p1;
             face.triangleNormal = glm::cross(PQ, PR);
-            glm::mat3x3 triangle = glm::mat3x3(face.p1, face.p2, face.p3);
+            glm::mat3x3 triangle = glm::mat3x3(vectors[faceVectors[size - 3] - 1], vectors[faceVectors[size - 2] - 1], vectors[faceVectors[size - 1] - 1]);
             face.det = glm::determinant(triangle);
             faces.push_back(face);
         }
