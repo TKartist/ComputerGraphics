@@ -147,8 +147,8 @@ static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos, con
             triangles.faces.push_back(face);
         }
     }
-    triangles.p_max = p_max;
-    triangles.p_min = p_min;
+    triangles.p_max = p_max + startingPos;
+    triangles.p_min = p_min + startingPos;
     return triangles;
 }
 
