@@ -284,10 +284,10 @@ glm::vec3 trace_ray(Ray ray)
 	closest_hit.hit = false;
 	closest_hit.distance = INFINITY;
 
-	bool all = objects[0]->intersect(ray).hit;
+	bool all = objects[0]->intersect(ray).hit || objects[1]->intersect(ray).hit || objects[2]->intersect(ray).hit;
 	if (all)
 	{
-		for (int k = 1; k < 7; k++)
+		for (int k = 3; k < 9; k++)
 		{
 			Hit hit = objects[k]->intersect(ray);
 			if (hit.hit == true && hit.distance < closest_hit.distance)
@@ -296,21 +296,13 @@ glm::vec3 trace_ray(Ray ray)
 	}
 	else
 	{
-		// cout << "god" << endl;
-		for (int k = 1; k < objects.size(); k++)
+		for (int k = 3; k < objects.size(); k++)
 		{
 			Hit hit = objects[k]->intersect(ray);
 			if (hit.hit == true && hit.distance < closest_hit.distance)
 				closest_hit = hit;
 		}
 	}
-
-	// for (int k = 1; k < objects.size(); k++)
-	// {
-	// 	Hit hit = objects[k]->intersect(ray);
-	// 	if (hit.hit == true && hit.distance < closest_hit.distance)
-	// 		closest_hit = hit;
-	// }
 
 	glm::vec3 color(0.0);
 
@@ -358,14 +350,14 @@ void sceneDefinition()
 	vector<Face> bunny(bunnyTriangles.faces);
 	glm::vec3 bunny_min = bunnyTriangles.p_min;
 	glm::vec3 bunny_max = bunnyTriangles.p_max;
-	// Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos, armaRotate);
-	// vector<Face> arma(armaTriangles.faces);
-	// glm::vec3 arma_min = armaTriangles.p_min;
-	// glm::vec3 arma_max = armaTriangles.p_max;
-	// Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos, noRotate);
-	// vector<Face> lucy(lucyTriangles.faces);
-	// glm::vec3 lucy_min = lucyTriangles.p_min;
-	// glm::vec3 lucy_max = lucyTriangles.p_max;
+	Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos, armaRotate);
+	vector<Face> arma(armaTriangles.faces);
+	glm::vec3 arma_min = armaTriangles.p_min;
+	glm::vec3 arma_max = armaTriangles.p_max;
+	Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos, noRotate);
+	vector<Face> lucy(lucyTriangles.faces);
+	glm::vec3 lucy_min = lucyTriangles.p_min;
+	glm::vec3 lucy_max = lucyTriangles.p_max;
 
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
@@ -394,15 +386,8 @@ void sceneDefinition()
 	pink_wall.ambient = glm::vec3(0.03f, 0.01f, 0.0f);
 
 	objects.push_back(new Box(bunny_min, bunny_max));
-
-	// objects.push_back(new Box(arma_min, arma_max));
-	// objects.push_back(new Box(lucy_min, lucy_max));
-
-	// for (int i = 0; i < arma.size(); i++)
-	// {
-	// 	arma.
-	// 	objects.push_back(new Triangle(arma[i], red_specular));
-	// }
+	objects.push_back(new Box(arma_min, arma_max));
+	objects.push_back(new Box(lucy_min, lucy_max));
 
 	// extending x-axis
 	objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0), pink_wall));
@@ -415,21 +400,19 @@ void sceneDefinition()
 	// extending z-axis
 	objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
 	objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
-	cout << bunny.size() << endl;
 
 	for (int i = 0; i < bunny.size(); i++)
 	{
 		objects.push_back(new Triangle(bunny[i], red_specular));
 	}
-	cout << objects.size() << endl;
-	// for (int i = 0; i < arma.size(); i++)
-	// {
-	// 	objects.push_back(new Triangle(arma[i], red_specular));
-	// }
-	// for (int i = 0; i < lucy.size(); i++)
-	// {
-	// 	objects.push_back(new Triangle(lucy[i], red_specular));
-	// }
+	for (int i = 0; i < arma.size(); i++)
+	{
+		objects.push_back(new Triangle(arma[i], red_specular));
+	}
+	for (int i = 0; i < lucy.size(); i++)
+	{
+		objects.push_back(new Triangle(lucy[i], red_specular));
+	}
 
 	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
 	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
