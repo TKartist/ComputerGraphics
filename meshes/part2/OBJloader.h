@@ -33,20 +33,20 @@ struct Triangles
     glm::vec3 p_max;
 };
 
-glm::vec3 getMin(glm::vec3 min, glm::vec3 vec)
+glm::vec3 getMin(glm::vec3 pmin, glm::vec3 vec)
 {
-    min.x = min.x > vec.x ? vec.x : min.x;
-    min.y = min.y > vec.y ? vec.y : min.y;
-    min.z = min.z > vec.z ? vec.z : min.z;
-    return min;
+    pmin.x = pmin.x > vec.x ? vec.x : pmin.x;
+    pmin.y = pmin.y > vec.y ? vec.y : pmin.y;
+    pmin.z = pmin.z > vec.z ? vec.z : pmin.z;
+    return pmin;
 }
 
-glm::vec3 getMax(glm::vec3 max, glm::vec3 vec)
+glm::vec3 getMax(glm::vec3 pmax, glm::vec3 vec)
 {
-    max.x = max.x < vec.x ? vec.x : max.x;
-    max.y = max.y < vec.y ? vec.y : max.y;
-    max.z = max.z < vec.z ? vec.z : max.z;
-    return max;
+    pmax.x = pmax.x < vec.x ? vec.x : pmax.x;
+    pmax.y = pmax.y < vec.y ? vec.y : pmax.y;
+    pmax.z = pmax.z < vec.z ? vec.z : pmax.z;
+    return pmax;
 }
 
 static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos, const glm::mat3x3 rotate)
@@ -70,7 +70,7 @@ static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos, con
     vector<GLint> faceNormals;
     int crawler = 0;
     glm::vec3 p_min = glm::vec3(INT_MAX);
-    glm::vec3 p_max = glm::vec3(INT_MAX);
+    glm::vec3 p_max = glm::vec3(INT_MIN);
     Triangles triangles;
 
     // read one line at a time
@@ -83,9 +83,6 @@ static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos, con
         if (prefix == "v")
         { // vertex position
             ss >> val.x >> val.y >> val.z;
-            val.x = val.x;
-            val.y = val.y;
-            val.z = val.z;
             p_min = getMin(p_min, val);
             p_max = getMax(p_max, val);
             vectors.push_back(val);

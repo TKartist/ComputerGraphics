@@ -185,36 +185,28 @@ public:
 	}
 	Hit intersect(Ray ray)
 	{
-
 		Hit hit;
 		hit.hit = false;
 
-		// r.dir is unit direction vector of ray
-		glm::vec3 rayDirection = glm::normalize(ray.direction);
 		// lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
 		// r.org is origin of ray
-		float t1 = (pmin.x - ray.origin.x) * rayDirection.x;
-		float t2 = (pmax.x - ray.origin.x) * rayDirection.x;
-		float t3 = (pmin.y - ray.origin.y) * rayDirection.y;
-		float t4 = (pmax.y - ray.origin.y) * rayDirection.y;
-		float t5 = (pmin.z - ray.origin.z) * rayDirection.z;
-		float t6 = (pmax.z - ray.origin.z) * rayDirection.z;
+		float t1 = (pmin.x - ray.origin.x) / ray.direction.x;
+		float t2 = (pmax.x - ray.origin.x) / ray.direction.x;
+		float t3 = (pmin.y - ray.origin.y) / ray.direction.y;
+		float t4 = (pmax.y - ray.origin.y) / ray.direction.y;
+		float t5 = (pmin.z - ray.origin.z) / ray.direction.z;
+		float t6 = (pmax.z - ray.origin.z) / ray.direction.z;
 
 		float tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6));
 		float tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
 
-		// if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
-		if (tmax < 0)
+		// Check for intersection
+		if (tmin <= tmax)
 		{
-			return hit;
+			hit.hit = true;
+			hit.object = this;
 		}
 
-		// if tmin > tmax, ray doesn't intersect AABB
-		if (tmin > tmax)
-		{
-			return hit;
-		}
-		hit.hit = true;
 		return hit;
 	}
 };
@@ -239,6 +231,7 @@ public:
 vector<Light *> lights; ///< A list of lights in the scene
 glm::vec3 ambient_light(1.0, 1.0, 1.0);
 vector<Object *> objects; ///< A list of all objects in the scene
+vector<int> sizes;
 
 /** Function for computing color of an object according to the Phong Model
  @param point A point belonging to the object for which the color is computed
@@ -284,21 +277,41 @@ glm::vec3 trace_ray(Ray ray)
 	closest_hit.hit = false;
 	closest_hit.distance = INFINITY;
 
-	bool all = objects[0]->intersect(ray).hit || objects[1]->intersect(ray).hit || objects[2]->intersect(ray).hit;
-	if (all)
+	Hit bunny = objects[0]->intersect(ray);
+	Hit arma = objects[1]->intersect(ray);
+	Hit lucy = objects[2]->intersect(ray);
+
+	for (int k = 3; k < sizes[0]; k++)
 	{
-		for (int k = 3; k < 9; k++)
+		Hit hit = objects[k]->intersect(ray);
+		if (hit.hit == true && hit.distance < closest_hit.distance)
+			closest_hit = hit;
+	}
+	if (bunny.hit)
+	{
+		for (int i = sizes[0]; i < sizes[1]; i++)
 		{
-			Hit hit = objects[k]->intersect(ray);
+			Hit hit = objects[i]->intersect(ray);
+			if (hit.hit == true && hit.distance < closest_hit.distance)
+			{
+				closest_hit = hit;
+			}
+		}
+	}
+	if (arma.hit)
+	{
+		for (int i = sizes[1]; i < sizes[2]; i++)
+		{
+			Hit hit = objects[i]->intersect(ray);
 			if (hit.hit == true && hit.distance < closest_hit.distance)
 				closest_hit = hit;
 		}
 	}
-	else
+	if (lucy.hit)
 	{
-		for (int k = 3; k < objects.size(); k++)
+		for (int i = sizes[2]; i < sizes[3]; i++)
 		{
-			Hit hit = objects[k]->intersect(ray);
+			Hit hit = objects[i]->intersect(ray);
 			if (hit.hit == true && hit.distance < closest_hit.distance)
 				closest_hit = hit;
 		}
@@ -400,19 +413,22 @@ void sceneDefinition()
 	// extending z-axis
 	objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
 	objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
-
+	sizes.push_back(objects.size());
 	for (int i = 0; i < bunny.size(); i++)
 	{
 		objects.push_back(new Triangle(bunny[i], red_specular));
 	}
+	sizes.push_back(objects.size());
 	for (int i = 0; i < arma.size(); i++)
 	{
 		objects.push_back(new Triangle(arma[i], red_specular));
 	}
+	sizes.push_back(objects.size());
 	for (int i = 0; i < lucy.size(); i++)
 	{
 		objects.push_back(new Triangle(lucy[i], red_specular));
 	}
+	sizes.push_back(objects.size());
 
 	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
 	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
