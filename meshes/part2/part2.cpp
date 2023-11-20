@@ -17,9 +17,10 @@ using namespace std;
 
 struct bvhStruct
 {
-    glm::vec3 minCoord;
-    glm::vec3 maxCoord;
+    glm::vec3 pmin;
+    glm::vec3 pmax;
     vector<int> objectIndices;
+    Box *box;
     struct bvhStruct *rightTree;
     struct bvhStruct *leftTree;
 };
@@ -140,6 +141,11 @@ public:
         }
         return hit;
     }
+
+    Face getFace()
+    {
+        return face;
+    }
 };
 
 class Plane : public Object
@@ -240,7 +246,8 @@ public:
 vector<Light *> lights; ///< A list of lights in the scene
 glm::vec3 ambient_light(1.0, 1.0, 1.0);
 vector<Object *> objects; ///< A list of all objects in the scene
-vector<int> sizes;
+vector<Face> tris;
+bvhStruct *tree;
 
 /** Function for computing color of an object according to the Phong Model
  @param point A point belonging to the object for which the color is computed
@@ -273,6 +280,28 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec3 view_direction
     return color;
 }
 
+vector<int> traverseTree(bvhStruct *branch, Ray ray)
+{
+    if (branch->leftTree == nullptr && branch->rightTree == nullptr)
+    {
+        return branch->objectIndices;
+    }
+    bool leftHit = branch->leftTree != nullptr ? branch->leftTree->box->intersect(ray).hit : false;
+    bool rightHit = branch->rightTree != nullptr ? branch->rightTree->box->intersect(ray).hit : false;
+    if (leftHit)
+    {
+        traverseTree(branch->leftTree, ray);
+    }
+    else if (rightHit)
+    {
+        traverseTree(branch->rightTree, ray);
+    }
+    else
+    {
+        return vector<int>();
+    }
+}
+
 /**
  Functions that computes a color along the ray
  @param ray Ray that should be traced through the scene
@@ -285,46 +314,6 @@ glm::vec3 trace_ray(Ray ray)
 
     closest_hit.hit = false;
     closest_hit.distance = INFINITY;
-
-    Hit bunny = objects[0]->intersect(ray);
-    Hit arma = objects[1]->intersect(ray);
-    Hit lucy = objects[2]->intersect(ray);
-
-    for (int k = 3; k < sizes[0]; k++)
-    {
-        Hit hit = objects[k]->intersect(ray);
-        if (hit.hit == true && hit.distance < closest_hit.distance)
-            closest_hit = hit;
-    }
-    if (bunny.hit)
-    {
-        for (int i = sizes[0]; i < sizes[1]; i++)
-        {
-            Hit hit = objects[i]->intersect(ray);
-            if (hit.hit == true && hit.distance < closest_hit.distance)
-            {
-                closest_hit = hit;
-            }
-        }
-    }
-    if (arma.hit)
-    {
-        for (int i = sizes[1]; i < sizes[2]; i++)
-        {
-            Hit hit = objects[i]->intersect(ray);
-            if (hit.hit == true && hit.distance < closest_hit.distance)
-                closest_hit = hit;
-        }
-    }
-    if (lucy.hit)
-    {
-        for (int i = sizes[2]; i < sizes[3]; i++)
-        {
-            Hit hit = objects[i]->intersect(ray);
-            if (hit.hit == true && hit.distance < closest_hit.distance)
-                closest_hit = hit;
-        }
-    }
 
     glm::vec3 color(0.0);
 
@@ -355,10 +344,85 @@ glm::mat3x3 getTranslationMatrix(float xRad, float yRad, float zRad)
         cY * sZ, sX * sY * sZ + cX * cZ, cX * sY * sZ - sX * cZ,
         -sY, sX * cY, cX * cY);
 }
+
+bool compSmall(int ele1, int ele2)
+{
+    return (ele1 < ele2);
+}
+
+bool compBigger(int ele1, int ele2)
+{
+    return (ele1 > ele2);
+}
+
+vector<glm::vec3> getBoundingBox(vector<int> points)
+{
+    glm::vec3 pmin = glm::vec3(INT_MAX);
+    glm::vec3 pmax = glm::vec3(INT_MIN);
+    for (int p : points)
+    {
+        pmin.x = min({pmin.x, tris[p].n1.x, tris[p].n2.x, tris[p].n3.x}, compSmall);
+        pmin.y = min({pmin.y, tris[p].n1.y, tris[p].n2.y, tris[p].n3.y}, compSmall);
+        pmin.z = min({pmin.z, tris[p].n1.z, tris[p].n2.z, tris[p].n3.z}, compSmall);
+        pmax.x = max({pmax.x, tris[p].n1.x, tris[p].n2.x, tris[p].n3.x}, compBigger);
+        pmax.y = max({pmax.y, tris[p].n1.y, tris[p].n2.y, tris[p].n3.y}, compBigger);
+        pmax.z = max({pmax.z, tris[p].n1.z, tris[p].n2.z, tris[p].n3.z}, compBigger);
+    }
+    return {pmin, pmax};
+}
+
+bvhStruct *bvh_node(vector<int> points, int direction)
+{
+    vector<glm::vec3> coords = getBoundingBox(points);
+    bvhStruct *current;
+    current->pmin = coords[0];
+    current->pmax = coords[1];
+    current->box = new Box(current->pmin, current->pmax);
+    if (points.size() < 1000)
+    {
+        current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
+        return current;
+    }
+    glm::vec3 newMax, newMin;
+    if (direction % 3 == 0)
+    { // cut y-val
+        float yVal = (coords[1].y - coords[0].y) / 2 + coords[0].y;
+        newMax = glm::vec3(coords[1].x, yVal, coords[1].z);
+        newMin = glm::vec3(coords[0].x, yVal, coords[0].z);
+    }
+    else if (direction % 3 == 1)
+    { // cut x-val
+        float xVal = (coords[1].x - coords[0].x) / 2 + coords[0].x;
+        newMax = glm::vec3(xVal, coords[1].y, coords[1].z);
+        newMin = glm::vec3(xVal, coords[0].y, coords[0].z);
+    }
+    else
+    { // cut z-val
+        float zVal = (coords[1].z - coords[0].z) / 2 + coords[0].z;
+        newMax = glm::vec3(coords[1].x, coords[1].y, zVal);
+        newMin = glm::vec3(coords[0].x, coords[0].y, zVal);
+    }
+    vector<int> leftPoints;
+    vector<int> rightPoints;
+    for (int i : points)
+    {
+        if ((tris[i].n1.x <= newMax.x && coords[0].x <= tris[i].n1.x) && (tris[i].n1.y <= newMax.y && coords[0].y <= tris[i].n1.y) && (tris[i].n1.z <= newMax.z && coords[0].z <= tris[i].n1.z) || (tris[i].n2.x <= newMax.x && coords[0].x <= tris[i].n2.x) && (tris[i].n2.y <= newMax.y && coords[0].y <= tris[i].n2.y) && (tris[i].n2.z <= newMax.z && coords[0].z <= tris[i].n2.z) || (tris[i].n3.x <= newMax.x && coords[0].x <= tris[i].n3.x) && (tris[i].n3.y <= newMax.y && coords[0].y <= tris[i].n3.y) && (tris[i].n3.z <= newMax.z && coords[0].z <= tris[i].n3.z))
+        {
+            leftPoints.push_back(i);
+        }
+        if ((tris[i].n1.x >= newMax.x && coords[0].x >= tris[i].n1.x) && (tris[i].n1.y >= newMax.y && coords[0].y >= tris[i].n1.y) && (tris[i].n1.z >= newMax.z && coords[0].z >= tris[i].n1.z) || (tris[i].n2.x >= newMax.x && coords[0].x >= tris[i].n2.x) && (tris[i].n2.y >= newMax.y && coords[0].y >= tris[i].n2.y) && (tris[i].n2.z >= newMax.z && coords[0].z >= tris[i].n2.z) || (tris[i].n3.x >= newMax.x && coords[0].x >= tris[i].n3.x) && (tris[i].n3.y >= newMax.y && coords[0].y >= tris[i].n3.y) && (tris[i].n3.z >= newMax.z && coords[0].z >= tris[i].n3.z))
+        {
+            rightPoints.push_back(i);
+        }
+    }
+    current->leftTree = bvh_node(leftPoints, direction + 1);
+    current->rightTree = bvh_node(rightPoints, direction + 1);
+    return current;
+}
+
 /**
  Function defining the scene
  */
-
 void sceneDefinition()
 {
     glm::vec3 bunnyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
@@ -369,21 +433,17 @@ void sceneDefinition()
 
     // passing the filepath and 3d object position and rotation
     Triangles bunnyTriangles = loadOBJ("../meshes/bunny_small.obj", bunnyStartingPos, noRotate);
-    vector<Face> bunny(bunnyTriangles.faces);
+    tris.insert(tris.end(), bunnyTriangles.faces.begin(), bunnyTriangles.faces.end());
     glm::vec3 bunny_min = bunnyTriangles.p_min;
     glm::vec3 bunny_max = bunnyTriangles.p_max;
     Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos, armaRotate);
-    vector<Face> arma(armaTriangles.faces);
+    tris.insert(tris.end(), armaTriangles.faces.begin(), armaTriangles.faces.end());
     glm::vec3 arma_min = armaTriangles.p_min;
     glm::vec3 arma_max = armaTriangles.p_max;
     Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos, noRotate);
-    vector<Face> lucy(lucyTriangles.faces);
+    tris.insert(tris.end(), lucyTriangles.faces.begin(), lucyTriangles.faces.end());
     glm::vec3 lucy_min = lucyTriangles.p_min;
     glm::vec3 lucy_max = lucyTriangles.p_max;
-
-    bvhStruct bvhNode;
-    bvhNode.maxCoord = max(max(lucy_max, arma_max), bunny_max);
-    bvhNode.minCoord = min(min(arma_min, lucy_min), bunny_min);
 
     Material red_specular;
     red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
@@ -411,10 +471,6 @@ void sceneDefinition()
     pink_wall.diffuse = glm::vec3(1.3f, 0.5f, 0.8f);
     pink_wall.ambient = glm::vec3(0.03f, 0.01f, 0.0f);
 
-    objects.push_back(new Box(bunny_min, bunny_max));
-    objects.push_back(new Box(arma_min, arma_max));
-    objects.push_back(new Box(lucy_min, lucy_max));
-
     // extending x-axis
     objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0), pink_wall));
     objects.push_back(new Plane(glm::vec3(15, 0, 0), glm::vec3(-1, 0, 0), purple_wall));
@@ -426,23 +482,13 @@ void sceneDefinition()
     // extending z-axis
     objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
     objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
-    sizes.push_back(objects.size());
-    for (int i = 0; i < bunny.size(); i++)
+    vector<int> idk;
+    for (int i = 0; i < tris.size(); i++)
     {
-        objects.push_back(new Triangle(bunny[i], red_specular));
+        objects.push_back(new Triangle(tris[i], red_specular));
+        idk.push_back(i);
     }
-    sizes.push_back(objects.size());
-    for (int i = 0; i < arma.size(); i++)
-    {
-        objects.push_back(new Triangle(arma[i], red_specular));
-    }
-    sizes.push_back(objects.size());
-    for (int i = 0; i < lucy.size(); i++)
-    {
-        objects.push_back(new Triangle(lucy[i], red_specular));
-    }
-    sizes.push_back(objects.size());
-
+    tree = bvh_node(idk, 0);
     lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.3)));
