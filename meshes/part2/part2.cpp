@@ -314,6 +314,15 @@ glm::vec3 trace_ray(Ray ray)
 
     closest_hit.hit = false;
     closest_hit.distance = INFINITY;
+    bvhStruct *traverser(tree);
+    vector<int> target = traverseTree(traverser, ray);
+
+    for (int k : target)
+    {
+        Hit hit = objects[k]->intersect(ray);
+        if (hit.hit == true && hit.distance < closest_hit.distance)
+            closest_hit = hit;
+    }
 
     glm::vec3 color(0.0);
 
