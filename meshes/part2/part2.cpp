@@ -15,16 +15,6 @@
 
 using namespace std;
 
-struct bvhStruct
-{
-    glm::vec3 pmin;
-    glm::vec3 pmax;
-    vector<int> objectIndices;
-    Box *box;
-    struct bvhStruct *rightTree;
-    struct bvhStruct *leftTree;
-};
-
 /**
  Class representing a single ray.
  */
@@ -243,6 +233,16 @@ public:
     }
 };
 
+struct bvhStruct
+{
+    glm::vec3 pmin;
+    glm::vec3 pmax;
+    vector<int> objectIndices;
+    Box *box;
+    struct bvhStruct *rightTree;
+    struct bvhStruct *leftTree;
+};
+
 vector<Light *> lights; ///< A list of lights in the scene
 glm::vec3 ambient_light(1.0, 1.0, 1.0);
 vector<Object *> objects; ///< A list of all objects in the scene
@@ -296,10 +296,7 @@ vector<int> traverseTree(bvhStruct *branch, Ray ray)
     {
         traverseTree(branch->rightTree, ray);
     }
-    else
-    {
-        return vector<int>();
-    }
+    return vector<int>();
 }
 
 /**
@@ -318,6 +315,14 @@ glm::vec3 trace_ray(Ray ray)
     vector<int> target = traverseTree(traverser, ray);
 
     for (int k : target)
+    {
+        Hit hit = objects[k]->intersect(ray);
+        if (hit.hit == true && hit.distance < closest_hit.distance)
+            closest_hit = hit;
+    }
+    cout << "ok" << endl;
+
+    for (int k = 0; k < 6; k++)
     {
         Hit hit = objects[k]->intersect(ray);
         if (hit.hit == true && hit.distance < closest_hit.distance)
@@ -497,7 +502,9 @@ void sceneDefinition()
         objects.push_back(new Triangle(tris[i], red_specular));
         idk.push_back(i);
     }
+    cout << "dam" << endl;
     tree = bvh_node(idk, 0);
+    cout << "what" << endl;
     lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.3)));
