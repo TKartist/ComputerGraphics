@@ -240,16 +240,13 @@ struct bvhStruct
     glm::vec3 pmax;
     vector<int> objectIndices;
     Box *box;
-    struct bvhStruct *rightTree;
-    struct bvhStruct *leftTree;
 };
 
 vector<Light *> lights; ///< A list of lights in the scene
 glm::vec3 ambient_light(1.0, 1.0, 1.0);
 vector<Object *> objects; ///< A list of all objects in the scene
 vector<Face> tris;
-bvhStruct *tree;
-int totalTriangles = 0;
+vector<bvhStruct *> tree;
 
 /** Function for computing color of an object according to the Phong Model
  @param point A point belonging to the object for which the color is computed
@@ -282,29 +279,6 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec3 view_direction
     return color;
 }
 
-vector<int> traverseTree(bvhStruct *branch, Ray ray)
-{
-    if (branch->leftTree == nullptr && branch->rightTree == nullptr)
-    {
-        return branch->objectIndices;
-    }
-    bool leftHit = branch->leftTree != nullptr ? branch->leftTree->box->intersect(ray).hit : false;
-    bool rightHit = branch->rightTree != nullptr ? branch->rightTree->box->intersect(ray).hit : false;
-    vector<int> result;
-    result.insert(result.end(), branch->objectIndices.begin(), branch->objectIndices.end());
-    if (leftHit)
-    {
-        vector<int> leftResult = traverseTree(branch->leftTree, ray);
-        result.insert(result.end(), leftResult.begin(), leftResult.end());
-    }
-    if (rightHit)
-    {
-        vector<int> rightResult = traverseTree(branch->rightTree, ray);
-        result.insert(result.end(), rightResult.begin(), rightResult.end());
-    }
-    return result;
-}
-
 /**
  Functions that computes a color along the ray
  @param ray Ray that should be traced through the scene
@@ -317,22 +291,19 @@ glm::vec3 trace_ray(Ray ray)
 
     closest_hit.hit = false;
     closest_hit.distance = INFINITY;
-    bvhStruct *traverser = new bvhStruct();
-    traverser->pmin = tree->pmin;
-    traverser->pmax = tree->pmax;
-    traverser->box = tree->box;
-    traverser->leftTree = tree->leftTree;
-    traverser->rightTree = tree->rightTree;
-    traverser->objectIndices = tree->objectIndices;
-    if (traverser->box->intersect(ray).hit)
+    vector<int> indices;
+    for (bvhStruct *f : tree)
     {
-        vector<int> target = traverseTree(traverser, ray);
-        for (int k : target)
+        if (f->box->intersect(ray).hit)
         {
-            Hit hit = objects[k]->intersect(ray);
-            if (hit.hit == true && hit.distance < closest_hit.distance)
-                closest_hit = hit;
+            indices.insert(indices.end(), f->objectIndices.begin(), f->objectIndices.end());
         }
+    }
+    for (int k : indices)
+    {
+        Hit hit = objects[k]->intersect(ray);
+        if (hit.hit == true && hit.distance < closest_hit.distance)
+            closest_hit = hit;
     }
 
     for (int k = 0; k < 6; k++)
@@ -412,7 +383,7 @@ bool inRange(glm::vec3 min, glm::vec3 max, glm::vec3 point)
     return true;
 }
 
-bvhStruct *bvh_node(vector<int> points, int direction)
+void bvh_node(vector<int> points, int direction)
 {
     vector<glm::vec3> coords = getBoundingBox(points);
     bvhStruct *current = new bvhStruct();
@@ -421,9 +392,9 @@ bvhStruct *bvh_node(vector<int> points, int direction)
     current->box = new Box(current->pmin, current->pmax);
     if (points.size() < 600)
     {
-        totalTriangles += points.size();
         current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
-        return current;
+        tree.push_back(current);
+        return;
     }
     glm::vec3 newMax, newMin;
     if (direction % 3 == 0)
@@ -457,9 +428,15 @@ bvhStruct *bvh_node(vector<int> points, int direction)
             rightPoints.push_back(i);
         }
     }
-    current->leftTree = leftPoints.empty() ? nullptr : bvh_node(leftPoints, direction + 1);
-    current->rightTree = rightPoints.empty() ? nullptr : bvh_node(rightPoints, direction + 1);
-    return current;
+    if (!leftPoints.empty())
+    {
+        bvh_node(leftPoints, direction + 1);
+    }
+    if (!rightPoints.empty())
+    {
+        bvh_node(rightPoints, direction + 1);
+    }
+    return;
 }
 
 /**
@@ -475,11 +452,11 @@ void sceneDefinition()
     glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
 
     // passing the filepath and 3d object position and rotation
-    Triangles bunnyTriangles = loadOBJ("../meshes/bunny.obj", bunnyStartingPos, noRotate);
+    Triangles bunnyTriangles = loadOBJ("../meshes/bunny_small.obj", bunnyStartingPos, noRotate);
     tris.insert(tris.end(), bunnyTriangles.faces.begin(), bunnyTriangles.faces.end());
-    Triangles armaTriangles = loadOBJ("../meshes/armadillo.obj", armaStartingPos, noRotate);
+    Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos, noRotate);
     tris.insert(tris.end(), armaTriangles.faces.begin(), armaTriangles.faces.end());
-    Triangles lucyTriangles = loadOBJ("../meshes/lucy.obj", lucyStartingPos, noRotate);
+    Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos, noRotate);
     tris.insert(tris.end(), lucyTriangles.faces.begin(), lucyTriangles.faces.end());
 
     Material red_specular;
@@ -525,8 +502,7 @@ void sceneDefinition()
         objects.push_back(new Triangle(tris[i], red_specular));
         idk.push_back(i);
     }
-    tree = bvh_node(idk, 0);
-    cout << idk.size() << " " << totalTriangles << endl;
+    bvh_node(idk, 0);
     lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.3)));
