@@ -288,15 +288,21 @@ vector<int> traverseTree(bvhStruct *branch, Ray ray)
     }
     bool leftHit = branch->leftTree != nullptr ? branch->leftTree->box->intersect(ray).hit : false;
     bool rightHit = branch->rightTree != nullptr ? branch->rightTree->box->intersect(ray).hit : false;
+    vector<int> leftResult, rightResult;
     if (leftHit)
     {
-        traverseTree(branch->leftTree, ray);
+        leftResult = traverseTree(branch->leftTree, ray);
     }
-    else if (rightHit)
+    if (rightHit)
     {
-        traverseTree(branch->rightTree, ray);
+        rightResult = traverseTree(branch->rightTree, ray);
     }
-    return vector<int>();
+    if (!leftHit && !rightHit)
+    {
+        return vector<int>();
+    }
+    leftResult.insert(leftResult.end(), rightResult.begin(), rightResult.end());
+    return leftResult;
 }
 
 /**
@@ -311,16 +317,24 @@ glm::vec3 trace_ray(Ray ray)
 
     closest_hit.hit = false;
     closest_hit.distance = INFINITY;
-    bvhStruct *traverser(tree);
+    bvhStruct *traverser = new bvhStruct();
+    traverser->pmin = tree->pmin;
+    traverser->pmax = tree->pmax;
+    traverser->box = tree->box;
+    traverser->leftTree = tree->leftTree;
+    traverser->rightTree = tree->rightTree;
+    traverser->objectIndices = {};
+    for (int i : tree->objectIndices)
+    {
+        traverser->objectIndices.push_back(i);
+    }
     vector<int> target = traverseTree(traverser, ray);
-
     for (int k : target)
     {
         Hit hit = objects[k]->intersect(ray);
         if (hit.hit == true && hit.distance < closest_hit.distance)
             closest_hit = hit;
     }
-    cout << "ok" << endl;
 
     for (int k = 0; k < 6; k++)
     {
@@ -359,42 +373,53 @@ glm::mat3x3 getTranslationMatrix(float xRad, float yRad, float zRad)
         -sY, sX * cY, cX * cY);
 }
 
-bool compSmall(int ele1, int ele2)
-{
-    return (ele1 < ele2);
-}
-
-bool compBigger(int ele1, int ele2)
-{
-    return (ele1 > ele2);
-}
-
 vector<glm::vec3> getBoundingBox(vector<int> points)
 {
     glm::vec3 pmin = glm::vec3(INT_MAX);
     glm::vec3 pmax = glm::vec3(INT_MIN);
     for (int p : points)
     {
-        pmin.x = min({pmin.x, tris[p].n1.x, tris[p].n2.x, tris[p].n3.x}, compSmall);
-        pmin.y = min({pmin.y, tris[p].n1.y, tris[p].n2.y, tris[p].n3.y}, compSmall);
-        pmin.z = min({pmin.z, tris[p].n1.z, tris[p].n2.z, tris[p].n3.z}, compSmall);
-        pmax.x = max({pmax.x, tris[p].n1.x, tris[p].n2.x, tris[p].n3.x}, compBigger);
-        pmax.y = max({pmax.y, tris[p].n1.y, tris[p].n2.y, tris[p].n3.y}, compBigger);
-        pmax.z = max({pmax.z, tris[p].n1.z, tris[p].n2.z, tris[p].n3.z}, compBigger);
+        pmin.x = min({pmin.x, tris[p].p1.x, tris[p].p2.x, tris[p].p3.x}, less<float>());
+        pmin.y = min({pmin.y, tris[p].p1.y, tris[p].p2.y, tris[p].p3.y}, less<float>());
+        pmin.z = min({pmin.z, tris[p].p1.z, tris[p].p2.z, tris[p].p3.z}, less<float>());
+        pmax.x = max({pmax.x, tris[p].p1.x, tris[p].p2.x, tris[p].p3.x});
+        pmax.y = max({pmax.y, tris[p].p1.y, tris[p].p2.y, tris[p].p3.y});
+        pmax.z = max({pmax.z, tris[p].p1.z, tris[p].p2.z, tris[p].p3.z});
     }
     return {pmin, pmax};
+}
+
+bool inRange(glm::vec3 min, glm::vec3 max, glm::vec3 point)
+{
+    if (min.x > point.x || max.x < point.x)
+    {
+        return false;
+    }
+    if (min.y > point.y || max.y < point.y)
+    {
+        return false;
+    }
+    if (min.z > point.z || max.z < point.z)
+    {
+        return false;
+    }
+    return true;
 }
 
 bvhStruct *bvh_node(vector<int> points, int direction)
 {
     vector<glm::vec3> coords = getBoundingBox(points);
-    bvhStruct *current;
+    bvhStruct *current = new bvhStruct();
     current->pmin = coords[0];
     current->pmax = coords[1];
+    current->objectIndices = {};
     current->box = new Box(current->pmin, current->pmax);
-    if (points.size() < 1000)
+    if (points.size() < 500)
     {
-        current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
+        for (int l : points)
+        {
+            current->objectIndices.push_back(l);
+        }
         return current;
     }
     glm::vec3 newMax, newMin;
@@ -420,17 +445,17 @@ bvhStruct *bvh_node(vector<int> points, int direction)
     vector<int> rightPoints;
     for (int i : points)
     {
-        if ((tris[i].n1.x <= newMax.x && coords[0].x <= tris[i].n1.x) && (tris[i].n1.y <= newMax.y && coords[0].y <= tris[i].n1.y) && (tris[i].n1.z <= newMax.z && coords[0].z <= tris[i].n1.z) || (tris[i].n2.x <= newMax.x && coords[0].x <= tris[i].n2.x) && (tris[i].n2.y <= newMax.y && coords[0].y <= tris[i].n2.y) && (tris[i].n2.z <= newMax.z && coords[0].z <= tris[i].n2.z) || (tris[i].n3.x <= newMax.x && coords[0].x <= tris[i].n3.x) && (tris[i].n3.y <= newMax.y && coords[0].y <= tris[i].n3.y) && (tris[i].n3.z <= newMax.z && coords[0].z <= tris[i].n3.z))
+        if (inRange(current->pmin, newMax, tris[i].p1) || inRange(current->pmin, newMax, tris[i].p2) || inRange(current->pmin, newMax, tris[i].p3))
         {
             leftPoints.push_back(i);
         }
-        if ((tris[i].n1.x >= newMax.x && coords[0].x >= tris[i].n1.x) && (tris[i].n1.y >= newMax.y && coords[0].y >= tris[i].n1.y) && (tris[i].n1.z >= newMax.z && coords[0].z >= tris[i].n1.z) || (tris[i].n2.x >= newMax.x && coords[0].x >= tris[i].n2.x) && (tris[i].n2.y >= newMax.y && coords[0].y >= tris[i].n2.y) && (tris[i].n2.z >= newMax.z && coords[0].z >= tris[i].n2.z) || (tris[i].n3.x >= newMax.x && coords[0].x >= tris[i].n3.x) && (tris[i].n3.y >= newMax.y && coords[0].y >= tris[i].n3.y) && (tris[i].n3.z >= newMax.z && coords[0].z >= tris[i].n3.z))
+        if (inRange(newMin, current->pmax, tris[i].p1) || inRange(newMin, current->pmax, tris[i].p2) || inRange(newMin, current->pmax, tris[i].p3))
         {
             rightPoints.push_back(i);
         }
     }
-    current->leftTree = bvh_node(leftPoints, direction + 1);
-    current->rightTree = bvh_node(rightPoints, direction + 1);
+    current->leftTree = leftPoints.empty() ? nullptr : bvh_node(leftPoints, direction + 1);
+    current->rightTree = rightPoints.empty() ? nullptr : bvh_node(rightPoints, direction + 1);
     return current;
 }
 
@@ -502,9 +527,7 @@ void sceneDefinition()
         objects.push_back(new Triangle(tris[i], red_specular));
         idk.push_back(i);
     }
-    cout << "dam" << endl;
     tree = bvh_node(idk, 0);
-    cout << "what" << endl;
     lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.3)));
