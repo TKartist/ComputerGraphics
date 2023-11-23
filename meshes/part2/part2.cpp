@@ -86,6 +86,9 @@ public:
      @param face Face of the triangle
      @param color Color of the sphere
      */
+    Triangle(Face face) : face(face)
+    {
+    }
     Triangle(Face face, glm::vec3 color) : face(face)
     {
         this->color = color;
@@ -100,10 +103,6 @@ public:
         float n_normal_d = glm::dot(face.triangleNormal, ray.direction);
         Hit hit;
         hit.hit = false;
-        if (n_normal_d < 0.0001f)
-        {
-            return hit;
-        }
         glm::vec3 distanceVector = face.p1 - ray.origin;
         float D = glm::dot(face.triangleNormal, face.p1) * -1;
         float t = glm::dot(face.triangleNormal, distanceVector) / n_normal_d;
@@ -121,12 +120,12 @@ public:
             hit.hit = true;
             hit.intersection = onPlanePoint;
 
-            float alpha = glm::determinant(glm::mat3x3(onPlanePoint, face.p2, face.p3)) / face.det;
-            float beta = glm::determinant(glm::mat3x3(face.p1, onPlanePoint, face.p3)) / face.det;
-            float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
+            // float alpha = glm::determinant(glm::mat3x3(onPlanePoint, face.p2, face.p3)) / face.det;
+            // float beta = glm::determinant(glm::mat3x3(face.p1, onPlanePoint, face.p3)) / face.det;
+            // float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
 
-            hit.normal = alpha * face.n1 + beta * face.n2 + gamma * face.n3;
-            // hit.normal = glm::normalize(face.triangleNormal);
+            // hit.normal = alpha * face.n1 + beta * face.n2 + gamma * face.n3;
+            hit.normal = glm::normalize(face.triangleNormal);
             hit.distance = glm::distance(ray.origin, hit.intersection);
             hit.object = this;
         }
@@ -270,12 +269,10 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec3 view_direction
 
         // getting specular
         glm::vec3 halfVector = glm::normalize(lightSource + view_direction);
-        float specular = glm::pow(max(glm::dot(normal, halfVector), 0.0f), 4 * material.shininess);
+        float specular = glm::pow(max(glm::dot(normal, halfVector), 0.0f), 0.0f);
 
         color += light->color * (material.diffuse * diffuse + material.specular * specular);
     }
-
-    color += ambient_light * material.ambient;
 
     // The final color has to be clamped so the values do not go beyond 0 and 1.
     color = glm::clamp(color, glm::vec3(0.0), glm::vec3(1.0));
@@ -420,7 +417,7 @@ bvhStruct *bvh_node(vector<int> points, int direction)
     current->pmax = coords[1];
 
     current->box = new Box(current->pmin, current->pmax);
-    if (points.size() < 4000)
+    if (direction > 24)
     {
         totalTriangles += points.size();
         current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
@@ -455,7 +452,7 @@ bvhStruct *bvh_node(vector<int> points, int direction)
         {
             leftPoints.push_back(i);
         }
-        if (inRange(newMin, coords[1], centeroid))
+        else if (inRange(newMin, coords[1], centeroid))
         {
             rightPoints.push_back(i);
         }
@@ -470,62 +467,34 @@ bvhStruct *bvh_node(vector<int> points, int direction)
  */
 void sceneDefinition()
 {
-
     glm::vec3 bunnyStartingPos = glm::vec3(0.0f, -3.0f, 8.0f);
     glm::vec3 armaStartingPos = glm::vec3(-4.0f, -3.0f, 10.0f);
     glm::vec3 lucyStartingPos = glm::vec3(4.0f, -3.0f, 10.0f);
-    // glm::mat3x3 armaRotate = getTranslationMatrix(glm::radians(-15.0f), glm::radians(150.0f), 0.0f);
     glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
 
     // passing the filepath and 3d object position and rotation
-    Triangles bunnyTriangles = loadOBJ("../meshes/bunny.obj", bunnyStartingPos, noRotate);
+    Triangles bunnyTriangles = loadOBJ("../meshes/bunny.obj", bunnyStartingPos);
     tris.insert(tris.end(), bunnyTriangles.faces.begin(), bunnyTriangles.faces.end());
-    Triangles armaTriangles = loadOBJ("../meshes/armadillo.obj", armaStartingPos, noRotate);
+    Triangles armaTriangles = loadOBJ("../meshes/armadillo.obj", armaStartingPos);
     tris.insert(tris.end(), armaTriangles.faces.begin(), armaTriangles.faces.end());
-    Triangles lucyTriangles = loadOBJ("../meshes/lucy.obj", lucyStartingPos, noRotate);
+    Triangles lucyTriangles = loadOBJ("../meshes/lucy.obj", lucyStartingPos);
     tris.insert(tris.end(), lucyTriangles.faces.begin(), lucyTriangles.faces.end());
 
-    Material red_specular;
-    red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
-    red_specular.ambient = glm::vec3(0.01f, 0.03f, 0.03f);
-    red_specular.specular = glm::vec3(0.5);
-    red_specular.shininess = 10.0;
-
-    Material green_specular;
-    green_specular.diffuse = glm::vec3(0.7f, 0.9f, 0.7f);
-    green_specular.ambient = glm::vec3(0.07f, 0.09f, 0.07f);
-    green_specular.specular = glm::vec3(0.0);
-    green_specular.shininess = 0.0;
-
-    Material white_wall;
-    white_wall.ambient = glm::vec3(0.2f);
-    white_wall.diffuse = glm::vec3(1.0f);
-    white_wall.specular = glm::vec3(1.0);
-    white_wall.shininess = 100.0;
-
-    Material purple_wall;
-    purple_wall.ambient = glm::vec3(0.1f, 0.01f, 0.0f);
-    purple_wall.diffuse = glm::vec3(0.7f, 0.7f, 1.0f);
-
-    Material pink_wall;
-    pink_wall.diffuse = glm::vec3(1.3f, 0.5f, 0.8f);
-    pink_wall.ambient = glm::vec3(0.03f, 0.01f, 0.0f);
-
     // extending x-axis
-    objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0), pink_wall));
-    objects.push_back(new Plane(glm::vec3(15, 0, 0), glm::vec3(-1, 0, 0), purple_wall));
+    objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0)));
+    objects.push_back(new Plane(glm::vec3(15, 0, 0), glm::vec3(-1, 0, 0)));
 
     // extending y-axis
-    objects.push_back(new Plane(glm::vec3(0, -3, 0), glm::vec3(0, 1, 0), white_wall));
-    objects.push_back(new Plane(glm::vec3(0, 27, 0), glm::vec3(0, -1, 0), white_wall));
+    objects.push_back(new Plane(glm::vec3(0, -3, 0), glm::vec3(0, 1, 0)));
+    objects.push_back(new Plane(glm::vec3(0, 27, 0), glm::vec3(0, -1, 0)));
 
     // extending z-axis
-    objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
-    objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
+    objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1)));
+    objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1)));
     vector<int> idk;
     for (int i = 0; i < tris.size(); i++)
     {
-        objects.push_back(new Triangle(tris[i], red_specular));
+        objects.push_back(new Triangle(tris[i]));
         idk.push_back(i);
     }
     tree = bvh_node(idk, 0);

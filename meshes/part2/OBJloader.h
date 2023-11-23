@@ -31,7 +31,7 @@ struct Triangles
     vector<Face> faces;
 };
 
-static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos, const glm::mat3x3 rotate)
+static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos)
 {
     vector<glm::vec3> vectors;
     vector<glm::vec3> vectorNormals;
@@ -103,15 +103,11 @@ static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos, con
             }
             Face face;
             int size = faceVectors.size();
-            face.p1 = (vectors[faceVectors[size - 3] - 1] * rotate) + startingPos;
-            face.p2 = (vectors[faceVectors[size - 2] - 1] * rotate) + startingPos;
-            face.p3 = (vectors[faceVectors[size - 1] - 1] * rotate) + startingPos;
+            face.p1 = vectors[faceVectors[size - 3] - 1] + startingPos;
+            face.p2 = vectors[faceVectors[size - 2] - 1] + startingPos;
+            face.p3 = vectors[faceVectors[size - 1] - 1] + startingPos;
             if (vectorNormals.size() > 0)
             {
-                // commented part implementation was a bit shinier and prettier even though it was wrong. if you want to see a prettier variant please go ahead.
-                // face.n1 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
-                // face.n2 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
-                // face.n3 = (vectorNormals[faceNormals[size - 3] - 1] * rotate) + startingPos;
                 face.n1 = vectorNormals[faceNormals[size - 3] - 1];
                 face.n2 = vectorNormals[faceNormals[size - 3] - 2];
                 face.n3 = vectorNormals[faceNormals[size - 3] - 3];
