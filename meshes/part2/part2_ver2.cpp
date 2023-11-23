@@ -387,10 +387,10 @@ void bvh_node(vector<int> points, int direction)
 {
     vector<glm::vec3> coords = getBoundingBox(points);
     bvhStruct *current = new bvhStruct();
-    current->pmin = coords[0];
-    current->pmax = coords[1];
+    current->pmin = coords[0] - glm::vec3(0.001f);
+    current->pmax = coords[1] + glm::vec3(0.001f);
     current->box = new Box(current->pmin, current->pmax);
-    if (points.size() < 600)
+    if (direction == 4 || points.size() < 400)
     {
         current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
         tree.push_back(current);
@@ -399,7 +399,7 @@ void bvh_node(vector<int> points, int direction)
     glm::vec3 newMax, newMin;
     if (direction % 3 == 0)
     { // cut y-val
-        float yVal = (coords[1].y - coords[0].y) / 2 + coords[0].y;
+        float yVal = coords[0].y + (coords[1].y - coords[0].y) / 2;
         newMax = glm::vec3(coords[1].x, yVal, coords[1].z);
         newMin = glm::vec3(coords[0].x, yVal, coords[0].z);
     }
@@ -419,11 +419,13 @@ void bvh_node(vector<int> points, int direction)
     vector<int> rightPoints;
     for (int i : points)
     {
-        if (inRange(current->pmin, newMax, tris[i].p1) || inRange(current->pmin, newMax, tris[i].p2) || inRange(current->pmin, newMax, tris[i].p3))
+        glm::vec3 sum = tris[i].p1 + tris[i].p2 + tris[i].p3;
+        glm::vec3 centeroid = glm::vec3(sum.x / 3, sum.y / 3, sum.z / 3);
+        if (inRange(current->pmin, newMax, centeroid))
         {
             leftPoints.push_back(i);
         }
-        if (inRange(newMin, current->pmax, tris[i].p1) || inRange(newMin, current->pmax, tris[i].p2) || inRange(newMin, current->pmax, tris[i].p3))
+        if (inRange(newMin, current->pmax, centeroid))
         {
             rightPoints.push_back(i);
         }

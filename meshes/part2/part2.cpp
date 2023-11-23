@@ -121,12 +121,12 @@ public:
             hit.hit = true;
             hit.intersection = onPlanePoint;
 
-            // float alpha = glm::determinant(glm::mat3x3(onPlanePoint, face.p2, face.p3)) / face.det;
-            // float beta = glm::determinant(glm::mat3x3(face.p1, onPlanePoint, face.p3)) / face.det;
-            // float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
+            float alpha = glm::determinant(glm::mat3x3(onPlanePoint, face.p2, face.p3)) / face.det;
+            float beta = glm::determinant(glm::mat3x3(face.p1, onPlanePoint, face.p3)) / face.det;
+            float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
 
-            // hit.normal = alpha * face.n1 + beta * face.n2 + gamma * face.n3;
-            hit.normal = glm::normalize(face.triangleNormal);
+            hit.normal = alpha * face.n1 + beta * face.n2 + gamma * face.n3;
+            // hit.normal = glm::normalize(face.triangleNormal);
             hit.distance = glm::distance(ray.origin, hit.intersection);
             hit.object = this;
         }
@@ -207,7 +207,7 @@ public:
         float tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
 
         // Check for intersection
-        if (tmin <= tmax)
+        if (tmin <= tmax && tmax >= 0)
         {
             hit.hit = true;
             hit.object = this;
@@ -329,7 +329,7 @@ glm::vec3 trace_ray(Ray ray)
         vector<int> target = traverseTree(traverser, ray);
         for (int k : target)
         {
-            Hit hit = objects[k]->intersect(ray);
+            Hit hit = objects[k + 6]->intersect(ray);
             if (hit.hit == true && hit.distance < closest_hit.distance)
                 closest_hit = hit;
         }
@@ -418,8 +418,9 @@ bvhStruct *bvh_node(vector<int> points, int direction)
     bvhStruct *current = new bvhStruct();
     current->pmin = coords[0];
     current->pmax = coords[1];
+
     current->box = new Box(current->pmin, current->pmax);
-    if (points.size() < 600)
+    if (points.size() < 4000)
     {
         totalTriangles += points.size();
         current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
@@ -448,11 +449,13 @@ bvhStruct *bvh_node(vector<int> points, int direction)
     vector<int> rightPoints;
     for (int i : points)
     {
-        if (inRange(current->pmin, newMax, tris[i].p1) || inRange(current->pmin, newMax, tris[i].p2) || inRange(current->pmin, newMax, tris[i].p3))
+        glm::vec3 sum = tris[i].p1 + tris[i].p2 + tris[i].p3;
+        glm::vec3 centeroid = glm::vec3(sum.x / 3, sum.y / 3, sum.z / 3);
+        if (inRange(coords[0], newMax, centeroid))
         {
             leftPoints.push_back(i);
         }
-        if (inRange(newMin, current->pmax, tris[i].p1) || inRange(newMin, current->pmax, tris[i].p2) || inRange(newMin, current->pmax, tris[i].p3))
+        if (inRange(newMin, coords[1], centeroid))
         {
             rightPoints.push_back(i);
         }
@@ -526,7 +529,6 @@ void sceneDefinition()
         idk.push_back(i);
     }
     tree = bvh_node(idk, 0);
-    cout << idk.size() << " " << totalTriangles << endl;
     lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.3)));
