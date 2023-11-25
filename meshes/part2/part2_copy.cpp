@@ -249,7 +249,6 @@ vector<Object *> objects; ///< A list of all objects in the scene
 vector<Face> tris;
 bvhStruct *tree;
 int totalTriangles = 0;
-int endTriangle = 0;
 
 /** Function for computing color of an object according to the Phong Model
  @param point A point belonging to the object for which the color is computed
@@ -315,18 +314,25 @@ glm::vec3 trace_ray(Ray ray)
 
     closest_hit.hit = false;
     closest_hit.distance = INFINITY;
-    if (tree->box->intersect(ray).hit)
+    bvhStruct *traverser = new bvhStruct();
+    traverser->pmin = tree->pmin;
+    traverser->pmax = tree->pmax;
+    traverser->box = tree->box;
+    traverser->leftTree = tree->leftTree;
+    traverser->rightTree = tree->rightTree;
+    traverser->objectIndices = tree->objectIndices;
+    if (traverser->box->intersect(ray).hit)
     {
-        vector<int> target = traverseTree(tree, ray);
+        vector<int> target = traverseTree(traverser, ray);
         for (int k : target)
         {
-            Hit hit = objects[k]->intersect(ray);
+            Hit hit = objects[k + 6]->intersect(ray);
             if (hit.hit == true && hit.distance < closest_hit.distance)
                 closest_hit = hit;
         }
     }
 
-    for (int k = endTriangle; k < endTriangle + 6; k++)
+    for (int k = 0; k < 6; k++)
     {
         Hit hit = objects[k]->intersect(ray);
         if (hit.hit == true && hit.distance < closest_hit.distance)
@@ -473,14 +479,6 @@ void sceneDefinition()
     tris.insert(tris.end(), armaTriangles.faces.begin(), armaTriangles.faces.end());
     Triangles lucyTriangles = loadOBJ("../meshes/lucy.obj", lucyStartingPos);
     tris.insert(tris.end(), lucyTriangles.faces.begin(), lucyTriangles.faces.end());
-    vector<int> idk;
-    for (int i = 0; i < tris.size(); i++)
-    {
-        objects.push_back(new Triangle(tris[i]));
-        idk.push_back(i);
-    }
-    tree = bvh_node(idk, 0);
-    endTriangle = tris.size();
 
     // extending x-axis
     objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0)));
@@ -493,6 +491,13 @@ void sceneDefinition()
     // extending z-axis
     objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1)));
     objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1)));
+    vector<int> idk;
+    for (int i = 0; i < tris.size(); i++)
+    {
+        objects.push_back(new Triangle(tris[i]));
+        idk.push_back(i);
+    }
+    tree = bvh_node(idk, 0);
     lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.3)));
