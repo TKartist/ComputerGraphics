@@ -20,9 +20,6 @@ struct Face
     glm::vec3 p1;
     glm::vec3 p2;
     glm::vec3 p3;
-    glm::vec3 n1; // vector normal of p1
-    glm::vec3 n2; // vecotr normal of p2
-    glm::vec3 n3; // vector normal of p3
     glm::vec3 triangleNormal;
     float det;
 };
@@ -34,7 +31,6 @@ struct Triangles
 static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos)
 {
     vector<glm::vec3> vectors;
-    vector<glm::vec3> vectorNormals;
     stringstream ss;
     ifstream in_file(file_name);
 
@@ -66,11 +62,6 @@ static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos)
         { // vertex position
             ss >> val.x >> val.y >> val.z;
             vectors.push_back(val);
-        }
-        else if (prefix == "vn")
-        {
-            ss >> val.x >> val.y >> val.z;
-            vectorNormals.push_back(val);
         }
         else if (prefix == "f")
         {
@@ -106,12 +97,6 @@ static Triangles loadOBJ(const char *file_name, const glm::vec3 startingPos)
             face.p1 = vectors[faceVectors[size - 3] - 1] + startingPos;
             face.p2 = vectors[faceVectors[size - 2] - 1] + startingPos;
             face.p3 = vectors[faceVectors[size - 1] - 1] + startingPos;
-            if (vectorNormals.size() > 0)
-            {
-                face.n1 = vectorNormals[faceNormals[size - 3] - 1];
-                face.n2 = vectorNormals[faceNormals[size - 3] - 2];
-                face.n3 = vectorNormals[faceNormals[size - 3] - 3];
-            }
             glm::vec3 PQ = face.p2 - face.p1;
             glm::vec3 PR = face.p3 - face.p1;
             face.triangleNormal = glm::cross(PQ, PR);

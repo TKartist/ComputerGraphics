@@ -99,10 +99,6 @@ public:
 		float n_normal_d = glm::dot(face.triangleNormal, ray.direction);
 		Hit hit;
 		hit.hit = false;
-		if (n_normal_d < 0.0001f)
-		{
-			return hit;
-		}
 		glm::vec3 distanceVector = face.p1 - ray.origin;
 		float D = glm::dot(face.triangleNormal, face.p1) * -1;
 		float t = glm::dot(face.triangleNormal, distanceVector) / n_normal_d;
@@ -350,6 +346,23 @@ glm::mat3x3 getTranslationMatrix(float xRad, float yRad, float zRad)
  Function defining the scene
  */
 
+vector<glm::vec3> getBoundingBox(vector<Face> faces)
+{
+	glm::vec3 pmin = glm::vec3(INT_MAX);
+	glm::vec3 pmax = glm::vec3(INT_MIN);
+	vector<float> elements;
+	for (Face f : faces)
+	{
+		pmin.x = min(min(min(pmin.x, f.p1.x), f.p2.x), f.p3.x);
+		pmin.y = min(min(min(pmin.y, f.p1.y), f.p2.y), f.p3.y);
+		pmin.z = min(min(min(pmin.z, f.p1.z), f.p2.z), f.p3.z);
+		pmax.x = max(max(max(pmax.x, f.p1.x), f.p2.x), f.p3.x);
+		pmax.y = max(max(max(pmax.y, f.p1.y), f.p2.y), f.p3.y);
+		pmax.z = max(max(max(pmax.z, f.p1.z), f.p2.z), f.p3.z);
+	}
+	return {pmin, pmax};
+}
+
 void sceneDefinition()
 {
 	glm::vec3 bunnyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
@@ -359,18 +372,22 @@ void sceneDefinition()
 	glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
 
 	// passing the filepath and 3d object position and rotation
-	Triangles bunnyTriangles = loadOBJ("../meshes/bunny_small.obj", bunnyStartingPos, noRotate);
+	Triangles bunnyTriangles = loadOBJ("../meshes/bunny_small.obj", bunnyStartingPos);
 	vector<Face> bunny(bunnyTriangles.faces);
-	glm::vec3 bunny_min = bunnyTriangles.p_min;
-	glm::vec3 bunny_max = bunnyTriangles.p_max;
-	Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos, armaRotate);
+	vector<glm::vec3> bounds = getBoundingBox(bunny);
+	glm::vec3 bunny_min = bounds[0];
+	glm::vec3 bunny_max = bounds[1];
+	Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos);
 	vector<Face> arma(armaTriangles.faces);
-	glm::vec3 arma_min = armaTriangles.p_min;
-	glm::vec3 arma_max = armaTriangles.p_max;
-	Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos, noRotate);
+	vector<glm::vec3> boundsA = getBoundingBox(arma);
+	glm::vec3 arma_min = boundsA[0];
+	glm::vec3 arma_max = boundsA[1];
+	Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos);
 	vector<Face> lucy(lucyTriangles.faces);
-	glm::vec3 lucy_min = lucyTriangles.p_min;
-	glm::vec3 lucy_max = lucyTriangles.p_max;
+	vector<glm::vec3> boundsL = getBoundingBox(lucy);
+	glm::vec3 lucy_min = boundsL[0];
+	glm::vec3 lucy_max = boundsL[1];
+	cout << "good" << endl;
 
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
@@ -429,6 +446,7 @@ void sceneDefinition()
 		objects.push_back(new Triangle(lucy[i], red_specular));
 	}
 	sizes.push_back(objects.size());
+	cout << sizes[0] << " " << sizes[1] << " " << sizes[2] << endl;
 
 	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
 	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));

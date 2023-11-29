@@ -119,12 +119,6 @@ public:
         {
             hit.hit = true;
             hit.intersection = onPlanePoint;
-
-            // float alpha = glm::determinant(glm::mat3x3(onPlanePoint, face.p2, face.p3)) / face.det;
-            // float beta = glm::determinant(glm::mat3x3(face.p1, onPlanePoint, face.p3)) / face.det;
-            // float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
-
-            // hit.normal = alpha * face.n1 + beta * face.n2 + gamma * face.n3;
             hit.normal = glm::normalize(face.triangleNormal);
             hit.distance = glm::distance(ray.origin, hit.intersection);
             hit.object = this;
@@ -268,11 +262,7 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec3 view_direction
         glm::vec3 lightSource = glm::normalize(light->position - point);
         float diffuse = max(glm::dot(lightSource, normal), 0.0f);
 
-        // getting specular
-        glm::vec3 halfVector = glm::normalize(lightSource + view_direction);
-        float specular = glm::pow(max(glm::dot(normal, halfVector), 0.0f), 0.0f);
-
-        color += light->color * (material.diffuse * diffuse + material.specular * specular);
+        color += light->color * diffuse;
     }
 
     // The final color has to be clamped so the values do not go beyond 0 and 1.
@@ -391,7 +381,7 @@ bvhStruct *bvh_node(vector<int> points, int direction)
     current->pmax = coords[1];
 
     current->box = new Box(current->pmin, current->pmax);
-    if (direction > 24)
+    if (direction > 18)
     {
         totalTriangles += points.size();
         current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
