@@ -337,21 +337,14 @@ vector<glm::vec3> getBoundingBox(vector<int> points)
 {
     glm::vec3 pmin = glm::vec3(INT_MAX);
     glm::vec3 pmax = glm::vec3(INT_MIN);
-    vector<float> elements;
     for (int p : points)
     {
-        elements = {pmin.x, tris[p].p1.x, tris[p].p2.x, tris[p].p3.x};
-        pmin.x = *min_element(elements.begin(), elements.end());
-        elements = {pmin.y, tris[p].p1.y, tris[p].p2.y, tris[p].p3.y};
-        pmin.y = *min_element(elements.begin(), elements.end());
-        elements = {pmin.z, tris[p].p1.z, tris[p].p2.z, tris[p].p3.z};
-        pmin.z = *min_element(elements.begin(), elements.end());
-        elements = {pmax.x, tris[p].p1.x, tris[p].p2.x, tris[p].p3.x};
-        pmax.x = *max_element(elements.begin(), elements.end());
-        elements = {pmax.y, tris[p].p1.y, tris[p].p2.y, tris[p].p3.y};
-        pmax.y = *max_element(elements.begin(), elements.end());
-        elements = {pmax.z, tris[p].p1.z, tris[p].p2.z, tris[p].p3.z};
-        pmax.z = *max_element(elements.begin(), elements.end());
+        pmin.x = min(min(min(pmin.x, tris[p].p1.x), tris[p].p2.x), tris[p].p3.x);
+        pmin.y = min(min(min(pmin.y, tris[p].p1.y), tris[p].p2.y), tris[p].p3.y);
+        pmin.z = min(min(min(pmin.z, tris[p].p1.z), tris[p].p2.z), tris[p].p3.z);
+        pmax.x = max(max(max(pmax.x, tris[p].p1.x), tris[p].p2.x), tris[p].p3.x);
+        pmax.y = max(max(max(pmax.y, tris[p].p1.y), tris[p].p2.y), tris[p].p3.y);
+        pmax.z = max(max(max(pmax.z, tris[p].p1.z), tris[p].p2.z), tris[p].p3.z);
     }
     return {pmin, pmax};
 }
