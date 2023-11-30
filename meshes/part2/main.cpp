@@ -372,22 +372,21 @@ void sceneDefinition()
 	glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
 
 	// passing the filepath and 3d object position and rotation
-	Triangles bunnyTriangles = loadOBJ("../meshes/bunny_small.obj", bunnyStartingPos);
+	Triangles bunnyTriangles = loadOBJ("../meshes/bunny.obj", bunnyStartingPos);
 	vector<Face> bunny(bunnyTriangles.faces);
 	vector<glm::vec3> bounds = getBoundingBox(bunny);
 	glm::vec3 bunny_min = bounds[0];
 	glm::vec3 bunny_max = bounds[1];
-	Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos);
+	Triangles armaTriangles = loadOBJ("../meshes/armadillo.obj", armaStartingPos);
 	vector<Face> arma(armaTriangles.faces);
 	vector<glm::vec3> boundsA = getBoundingBox(arma);
 	glm::vec3 arma_min = boundsA[0];
 	glm::vec3 arma_max = boundsA[1];
-	Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos);
+	Triangles lucyTriangles = loadOBJ("../meshes/lucy.obj", lucyStartingPos);
 	vector<Face> lucy(lucyTriangles.faces);
 	vector<glm::vec3> boundsL = getBoundingBox(lucy);
 	glm::vec3 lucy_min = boundsL[0];
 	glm::vec3 lucy_max = boundsL[1];
-	cout << "good" << endl;
 
 	Material red_specular;
 	red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
@@ -446,7 +445,6 @@ void sceneDefinition()
 		objects.push_back(new Triangle(lucy[i], red_specular));
 	}
 	sizes.push_back(objects.size());
-	cout << sizes[0] << " " << sizes[1] << " " << sizes[2] << endl;
 
 	lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
 	lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));

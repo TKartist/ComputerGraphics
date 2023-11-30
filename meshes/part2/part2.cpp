@@ -243,7 +243,24 @@ vector<Object *> objects; ///< A list of all objects in the scene
 vector<Face> tris;
 vector<int> traverseObjects;
 bvhStruct *tree;
-int totalTriangles = 0;
+
+void traverseTree(bvhStruct *branch, Ray ray)
+{
+    if (branch->leftTree == nullptr && branch->rightTree == nullptr)
+    {
+        traverseObjects.insert(traverseObjects.end(), branch->objectIndices.begin(), branch->objectIndices.end());
+    }
+    bool leftHit = branch->leftTree != nullptr ? branch->leftTree->box->intersect(ray).hit : false;
+    bool rightHit = branch->rightTree != nullptr ? branch->rightTree->box->intersect(ray).hit : false;
+    if (leftHit)
+    {
+        traverseTree(branch->leftTree, ray);
+    }
+    if (rightHit)
+    {
+        traverseTree(branch->rightTree, ray);
+    }
+}
 
 /** Function for computing color of an object according to the Phong Model
  @param point A point belonging to the object for which the color is computed
@@ -268,24 +285,6 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec3 view_direction
     // The final color has to be clamped so the values do not go beyond 0 and 1.
     color = glm::clamp(color, glm::vec3(0.0), glm::vec3(1.0));
     return color;
-}
-
-void traverseTree(bvhStruct *branch, Ray ray)
-{
-    if (branch->leftTree == nullptr && branch->rightTree == nullptr)
-    {
-        traverseObjects.insert(traverseObjects.end(), branch->objectIndices.begin(), branch->objectIndices.end());
-    }
-    bool leftHit = branch->leftTree != nullptr ? branch->leftTree->box->intersect(ray).hit : false;
-    bool rightHit = branch->rightTree != nullptr ? branch->rightTree->box->intersect(ray).hit : false;
-    if (leftHit)
-    {
-        traverseTree(branch->leftTree, ray);
-    }
-    if (rightHit)
-    {
-        traverseTree(branch->rightTree, ray);
-    }
 }
 
 /**
@@ -374,9 +373,8 @@ bvhStruct *bvh_node(vector<int> points, int direction)
     current->pmax = coords[1];
 
     current->box = new Box(current->pmin, current->pmax);
-    if (direction > 18)
+    if (direction > 19)
     {
-        totalTriangles += points.size();
         current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
         return current;
     }
