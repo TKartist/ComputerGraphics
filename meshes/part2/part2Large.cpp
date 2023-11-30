@@ -7,6 +7,7 @@
 #include <cmath>
 #include <ctime>
 #include <vector>
+#include <bits/stdc++.h>
 #include "glm/glm.hpp"
 
 #include "Image.h"
@@ -85,6 +86,9 @@ public:
      @param face Face of the triangle
      @param color Color of the sphere
      */
+    Triangle(Face face) : face(face)
+    {
+    }
     Triangle(Face face, glm::vec3 color) : face(face)
     {
         this->color = color;
@@ -99,10 +103,6 @@ public:
         float n_normal_d = glm::dot(face.triangleNormal, ray.direction);
         Hit hit;
         hit.hit = false;
-        if (n_normal_d < 0.0001f)
-        {
-            return hit;
-        }
         glm::vec3 distanceVector = face.p1 - ray.origin;
         float D = glm::dot(face.triangleNormal, face.p1) * -1;
         float t = glm::dot(face.triangleNormal, distanceVector) / n_normal_d;
@@ -119,17 +119,16 @@ public:
         {
             hit.hit = true;
             hit.intersection = onPlanePoint;
-
-            // float alpha = glm::determinant(glm::mat3x3(onPlanePoint, face.p2, face.p3)) / face.det;
-            // float beta = glm::determinant(glm::mat3x3(face.p1, onPlanePoint, face.p3)) / face.det;
-            // float gamma = glm::determinant(glm::mat3x3(face.p1, face.p2, onPlanePoint)) / face.det;
-
-            // hit.normal = alpha * face.n1 + beta * face.n2 + gamma * face.n3;
             hit.normal = glm::normalize(face.triangleNormal);
             hit.distance = glm::distance(ray.origin, hit.intersection);
             hit.object = this;
         }
         return hit;
+    }
+
+    Face getFace()
+    {
+        return face;
     }
 };
 
@@ -185,36 +184,28 @@ public:
     }
     Hit intersect(Ray ray)
     {
-
         Hit hit;
         hit.hit = false;
 
-        // r.dir is unit direction vector of ray
-        glm::vec3 rayDirection = glm::normalize(ray.direction);
         // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
         // r.org is origin of ray
-        float t1 = (pmin.x - ray.origin.x) * rayDirection.x;
-        float t2 = (pmax.x - ray.origin.x) * rayDirection.x;
-        float t3 = (pmin.y - ray.origin.y) * rayDirection.y;
-        float t4 = (pmax.y - ray.origin.y) * rayDirection.y;
-        float t5 = (pmin.z - ray.origin.z) * rayDirection.z;
-        float t6 = (pmax.z - ray.origin.z) * rayDirection.z;
+        float t1 = (pmin.x - ray.origin.x) / ray.direction.x;
+        float t2 = (pmax.x - ray.origin.x) / ray.direction.x;
+        float t3 = (pmin.y - ray.origin.y) / ray.direction.y;
+        float t4 = (pmax.y - ray.origin.y) / ray.direction.y;
+        float t5 = (pmin.z - ray.origin.z) / ray.direction.z;
+        float t6 = (pmax.z - ray.origin.z) / ray.direction.z;
 
         float tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6));
         float tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
 
-        // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
-        if (tmax < 0)
+        // Check for intersection
+        if (tmin <= tmax && tmax >= 0)
         {
-            return hit;
+            hit.hit = true;
+            hit.object = this;
         }
 
-        // if tmin > tmax, ray doesn't intersect AABB
-        if (tmin > tmax)
-        {
-            return hit;
-        }
-        hit.hit = true;
         return hit;
     }
 };
@@ -236,9 +227,40 @@ public:
     }
 };
 
+struct bvhStruct
+{
+    glm::vec3 pmin;
+    glm::vec3 pmax;
+    vector<int> objectIndices;
+    Box *box;
+    struct bvhStruct *rightTree;
+    struct bvhStruct *leftTree;
+};
+
 vector<Light *> lights; ///< A list of lights in the scene
 glm::vec3 ambient_light(1.0, 1.0, 1.0);
 vector<Object *> objects; ///< A list of all objects in the scene
+vector<Face> tris;
+vector<int> traverseObjects;
+bvhStruct *tree;
+
+void traverseTree(bvhStruct *branch, Ray ray)
+{
+    if (branch->leftTree == nullptr && branch->rightTree == nullptr)
+    {
+        traverseObjects.insert(traverseObjects.end(), branch->objectIndices.begin(), branch->objectIndices.end());
+    }
+    bool leftHit = branch->leftTree != nullptr ? branch->leftTree->box->intersect(ray).hit : false;
+    bool rightHit = branch->rightTree != nullptr ? branch->rightTree->box->intersect(ray).hit : false;
+    if (leftHit)
+    {
+        traverseTree(branch->leftTree, ray);
+    }
+    if (rightHit)
+    {
+        traverseTree(branch->rightTree, ray);
+    }
+}
 
 /** Function for computing color of an object according to the Phong Model
  @param point A point belonging to the object for which the color is computed
@@ -257,14 +279,8 @@ glm::vec3 PhongModel(glm::vec3 point, glm::vec3 normal, glm::vec3 view_direction
         glm::vec3 lightSource = glm::normalize(light->position - point);
         float diffuse = max(glm::dot(lightSource, normal), 0.0f);
 
-        // getting specular
-        glm::vec3 halfVector = glm::normalize(lightSource + view_direction);
-        float specular = glm::pow(max(glm::dot(normal, halfVector), 0.0f), 4 * material.shininess);
-
-        color += light->color * (material.diffuse * diffuse + material.specular * specular);
+        color += light->color * diffuse;
     }
-
-    color += ambient_light * material.ambient;
 
     // The final color has to be clamped so the values do not go beyond 0 and 1.
     color = glm::clamp(color, glm::vec3(0.0), glm::vec3(1.0));
@@ -283,28 +299,19 @@ glm::vec3 trace_ray(Ray ray)
 
     closest_hit.hit = false;
     closest_hit.distance = INFINITY;
+    if (tree->box->intersect(ray).hit)
+    {
+        traverseObjects.clear();
+        traverseTree(tree, ray);
+        for (int k : traverseObjects)
+        {
+            Hit hit = objects[k + 6]->intersect(ray);
+            if (hit.hit == true && hit.distance < closest_hit.distance)
+                closest_hit = hit;
+        }
+    }
 
-    // bool all = objects[0]->intersect(ray).hit;
-    // if (all)
-    // {
-    //     for (int k = 1; k < 7; k++)
-    //     {
-    //         Hit hit = objects[k]->intersect(ray);
-    //         if (hit.hit == true && hit.distance < closest_hit.distance)
-    //             closest_hit = hit;
-    //     }
-    // }
-    // else
-    // {
-    //     for (int k = 1; k < objects.size(); k++)
-    //     {
-    //         Hit hit = objects[k]->intersect(ray);
-    //         if (hit.hit == true && hit.distance < closest_hit.distance)
-    //             closest_hit = hit;
-    //     }
-    // }
-
-    for (int k = 0; k < objects.size(); k++)
+    for (int k = 0; k < 6; k++)
     {
         Hit hit = objects[k]->intersect(ray);
         if (hit.hit == true && hit.distance < closest_hit.distance)
@@ -325,99 +332,125 @@ glm::vec3 trace_ray(Ray ray)
     return color;
 }
 
-glm::mat3x3 getTranslationMatrix(float xRad, float yRad, float zRad)
+vector<glm::vec3> getBoundingBox(vector<int> points)
 {
-    float cX = cos(xRad);
-    float cY = cos(yRad);
-    float cZ = cos(zRad);
-
-    float sX = sin(xRad);
-    float sY = sin(yRad);
-    float sZ = sin(zRad);
-
-    return glm::mat3x3(
-        cY * cZ, sX * sY * cZ - cX * sZ, cX * sY * cZ + sX * sZ,
-        cY * sZ, sX * sY * sZ + cX * cZ, cX * sY * sZ - sX * cZ,
-        -sY, sX * cY, cX * cY);
+    glm::vec3 pmin = glm::vec3(INT_MAX);
+    glm::vec3 pmax = glm::vec3(INT_MIN);
+    for (int p : points)
+    {
+        pmin.x = min(min(min(pmin.x, tris[p].p1.x), tris[p].p2.x), tris[p].p3.x);
+        pmin.y = min(min(min(pmin.y, tris[p].p1.y), tris[p].p2.y), tris[p].p3.y);
+        pmin.z = min(min(min(pmin.z, tris[p].p1.z), tris[p].p2.z), tris[p].p3.z);
+        pmax.x = max(max(max(pmax.x, tris[p].p1.x), tris[p].p2.x), tris[p].p3.x);
+        pmax.y = max(max(max(pmax.y, tris[p].p1.y), tris[p].p2.y), tris[p].p3.y);
+        pmax.z = max(max(max(pmax.z, tris[p].p1.z), tris[p].p2.z), tris[p].p3.z);
+    }
+    return {pmin, pmax};
 }
+
+bool inRange(glm::vec3 min, glm::vec3 max, glm::vec3 point)
+{
+    if (min.x > point.x || max.x < point.x)
+    {
+        return false;
+    }
+    if (min.y > point.y || max.y < point.y)
+    {
+        return false;
+    }
+    if (min.z > point.z || max.z < point.z)
+    {
+        return false;
+    }
+    return true;
+}
+
+bvhStruct *bvh_node(vector<int> points, int direction)
+{
+    vector<glm::vec3> coords = getBoundingBox(points);
+    bvhStruct *current = new bvhStruct();
+    current->pmin = coords[0];
+    current->pmax = coords[1];
+
+    current->box = new Box(current->pmin, current->pmax);
+    if (direction > 19)
+    {
+        current->objectIndices.insert(current->objectIndices.end(), points.begin(), points.end());
+        return current;
+    }
+    glm::vec3 newMax, newMin;
+    if (direction % 3 == 0)
+    { // cut y-val
+        float yVal = (coords[1].y - coords[0].y) / 2 + coords[0].y;
+        newMax = glm::vec3(coords[1].x, yVal, coords[1].z);
+        newMin = glm::vec3(coords[0].x, yVal, coords[0].z);
+    }
+    else if (direction % 3 == 1)
+    { // cut x-val
+        float xVal = (coords[1].x - coords[0].x) / 2 + coords[0].x;
+        newMax = glm::vec3(xVal, coords[1].y, coords[1].z);
+        newMin = glm::vec3(xVal, coords[0].y, coords[0].z);
+    }
+    else
+    { // cut z-val
+        float zVal = (coords[1].z - coords[0].z) / 2 + coords[0].z;
+        newMax = glm::vec3(coords[1].x, coords[1].y, zVal);
+        newMin = glm::vec3(coords[0].x, coords[0].y, zVal);
+    }
+    vector<int> leftPoints;
+    vector<int> rightPoints;
+    for (int i : points)
+    {
+        glm::vec3 sum = tris[i].p1 + tris[i].p2 + tris[i].p3;
+        glm::vec3 centeroid = glm::vec3(sum.x / 3, sum.y / 3, sum.z / 3);
+        if (inRange(coords[0], newMax, centeroid))
+        {
+            leftPoints.push_back(i);
+        }
+        else if (inRange(newMin, coords[1], centeroid))
+        {
+            rightPoints.push_back(i);
+        }
+    }
+    current->leftTree = leftPoints.empty() ? nullptr : bvh_node(leftPoints, direction + 1);
+    current->rightTree = rightPoints.empty() ? nullptr : bvh_node(rightPoints, direction + 1);
+    return current;
+}
+
 /**
  Function defining the scene
  */
-
 void sceneDefinition()
 {
-    glm::vec3 bunnyStartingPos = glm::vec3(0.0f, -3.0f, 9.0f);
-    glm::vec3 armaStartingPos = glm::vec3(-3.0f, -2.0f, 9.0f);
-    glm::vec3 lucyStartingPos = glm::vec3(3.0f, -2.0f, 9.0f);
-    glm::mat3x3 armaRotate = getTranslationMatrix(glm::radians(-15.0f), glm::radians(150.0f), 0.0f);
-    glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
+    glm::vec3 bunnyStartingPos = glm::vec3(0.0f, -3.0f, 8.0f);
+    glm::vec3 armaStartingPos = glm::vec3(-4.0f, -3.0f, 10.0f);
+    glm::vec3 lucyStartingPos = glm::vec3(4.0f, -3.0f, 10.0f);
 
     // passing the filepath and 3d object position and rotation
-    Triangles bunnyTriangles = loadOBJ("../meshes/bunny_small.obj", bunnyStartingPos, noRotate);
-    vector<Face> bunny(bunnyTriangles.faces);
-    // glm::vec3 bunny_min = bunnyTriangles.p_min;
-    // glm::vec3 bunny_max = bunnyTriangles.p_max;
-    Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos, armaRotate);
-    vector<Face> arma(armaTriangles.faces);
-    // glm::vec3 arma_min = armaTriangles.p_min;
-    // glm::vec3 arma_max = armaTriangles.p_max;
-    Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos, noRotate);
-    vector<Face> lucy(lucyTriangles.faces);
-    // glm::vec3 lucy_min = lucyTriangles.p_min;
-    // glm::vec3 lucy_max = lucyTriangles.p_max;
-
-    Material red_specular;
-    red_specular.diffuse = glm::vec3(1.0f, 0.3f, 0.3f);
-    red_specular.ambient = glm::vec3(0.01f, 0.03f, 0.03f);
-    red_specular.specular = glm::vec3(0.5);
-    red_specular.shininess = 10.0;
-
-    Material green_specular;
-    green_specular.diffuse = glm::vec3(0.7f, 0.9f, 0.7f);
-    green_specular.ambient = glm::vec3(0.07f, 0.09f, 0.07f);
-    green_specular.specular = glm::vec3(0.0);
-    green_specular.shininess = 0.0;
-
-    Material white_wall;
-    white_wall.ambient = glm::vec3(0.2f);
-    white_wall.diffuse = glm::vec3(1.0f);
-    white_wall.specular = glm::vec3(1.0);
-    white_wall.shininess = 100.0;
-
-    Material purple_wall;
-    purple_wall.ambient = glm::vec3(0.1f, 0.01f, 0.0f);
-    purple_wall.diffuse = glm::vec3(0.7f, 0.7f, 1.0f);
-
-    Material pink_wall;
-    pink_wall.diffuse = glm::vec3(1.3f, 0.5f, 0.8f);
-    pink_wall.ambient = glm::vec3(0.03f, 0.01f, 0.0f);
+    Triangles bunnyTriangles = loadOBJ("../meshes/bunny.obj", bunnyStartingPos);
+    tris.insert(tris.end(), bunnyTriangles.faces.begin(), bunnyTriangles.faces.end());
+    Triangles armaTriangles = loadOBJ("../meshes/armadillo.obj", armaStartingPos);
+    tris.insert(tris.end(), armaTriangles.faces.begin(), armaTriangles.faces.end());
+    Triangles lucyTriangles = loadOBJ("../meshes/lucy.obj", lucyStartingPos);
+    tris.insert(tris.end(), lucyTriangles.faces.begin(), lucyTriangles.faces.end());
 
     // extending x-axis
-    objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0), pink_wall));
-    objects.push_back(new Plane(glm::vec3(15, 0, 0), glm::vec3(-1, 0, 0), purple_wall));
+    objects.push_back(new Plane(glm::vec3(-15, 0, 0), glm::vec3(1, 0, 0)));
+    objects.push_back(new Plane(glm::vec3(15, 0, 0), glm::vec3(-1, 0, 0)));
 
     // extending y-axis
-    objects.push_back(new Plane(glm::vec3(0, -3, 0), glm::vec3(0, 1, 0), white_wall));
-    objects.push_back(new Plane(glm::vec3(0, 27, 0), glm::vec3(0, -1, 0), white_wall));
+    objects.push_back(new Plane(glm::vec3(0, -3, 0), glm::vec3(0, 1, 0)));
+    objects.push_back(new Plane(glm::vec3(0, 27, 0), glm::vec3(0, -1, 0)));
 
     // extending z-axis
-    objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1), green_specular));
-    objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1), green_specular));
-    cout << bunny.size() << endl;
-
-    for (int i = 0; i < bunny.size(); i++)
+    objects.push_back(new Plane(glm::vec3(0, 0, -0.01), glm::vec3(0, 0, 1)));
+    objects.push_back(new Plane(glm::vec3(0, 0, 30), glm::vec3(0, 0, -1)));
+    for (int i = 0; i < tris.size(); i++)
     {
-        objects.push_back(new Triangle(bunny[i], red_specular));
+        objects.push_back(new Triangle(tris[i]));
+        traverseObjects.push_back(i);
     }
-    for (int i = 0; i < arma.size(); i++)
-    {
-        objects.push_back(new Triangle(arma[i], red_specular));
-    }
-    for (int i = 0; i < lucy.size(); i++)
-    {
-        objects.push_back(new Triangle(lucy[i], red_specular));
-    }
-
+    tree = bvh_node(traverseObjects, 0);
     lights.push_back(new Light(glm::vec3(0, 26, 5), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 1, 12), glm::vec3(0.3)));
     lights.push_back(new Light(glm::vec3(0, 5, 1), glm::vec3(0.3)));
@@ -428,9 +461,9 @@ int main(int argc, const char *argv[])
 
     clock_t t = clock(); // variable for keeping the time of the rendering
 
-    int width = 1024; // width of the image
-    int height = 768; // height of the image
-    float fov = 90;   // field of view
+    int width = 2048;  // width of the image
+    int height = 1536; // height of the image
+    float fov = 90;    // field of view
 
     sceneDefinition(); // Let's define a scene
 

@@ -1,0 +1,15 @@
+Execution time analysis for AABB structure small dataset 
+Maximum execution time: 29.603300 
+Minimum execution time: 26.710400 
+Mean execution time: 27.890760 
+Median execution time: 27.755600 
+Execution time analysis for BVH structure small dataset 
+Maximum execution time: 0.929400 
+Minimum execution time: 0.756100 
+Mean execution time: 0.809350 
+Median execution time: 0.80450 
+Execution time analysis for BVH structure large dataset 
+Maximum execution time: 7.914000 
+Minimum execution time: 7.057700 
+Mean execution time: 7.311330 
+Median execution time: 7.45550 

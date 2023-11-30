@@ -427,11 +427,11 @@ void sceneDefinition()
     glm::vec3 lucyStartingPos = glm::vec3(4.0f, -3.0f, 10.0f);
 
     // passing the filepath and 3d object position and rotation
-    Triangles bunnyTriangles = loadOBJ("../meshes/bunny.obj", bunnyStartingPos);
+    Triangles bunnyTriangles = loadOBJ("../meshes/bunny_small.obj", bunnyStartingPos);
     tris.insert(tris.end(), bunnyTriangles.faces.begin(), bunnyTriangles.faces.end());
-    Triangles armaTriangles = loadOBJ("../meshes/armadillo.obj", armaStartingPos);
+    Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos);
     tris.insert(tris.end(), armaTriangles.faces.begin(), armaTriangles.faces.end());
-    Triangles lucyTriangles = loadOBJ("../meshes/lucy.obj", lucyStartingPos);
+    Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos);
     tris.insert(tris.end(), lucyTriangles.faces.begin(), lucyTriangles.faces.end());
 
     // extending x-axis

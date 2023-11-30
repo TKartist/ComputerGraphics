@@ -372,17 +372,17 @@ void sceneDefinition()
 	glm::mat3x3 noRotate = getTranslationMatrix(0.0f, 0.0f, 0.0f);
 
 	// passing the filepath and 3d object position and rotation
-	Triangles bunnyTriangles = loadOBJ("../meshes/bunny.obj", bunnyStartingPos);
+	Triangles bunnyTriangles = loadOBJ("../meshes/bunny_small.obj", bunnyStartingPos);
 	vector<Face> bunny(bunnyTriangles.faces);
 	vector<glm::vec3> bounds = getBoundingBox(bunny);
 	glm::vec3 bunny_min = bounds[0];
 	glm::vec3 bunny_max = bounds[1];
-	Triangles armaTriangles = loadOBJ("../meshes/armadillo.obj", armaStartingPos);
+	Triangles armaTriangles = loadOBJ("../meshes/armadillo_small.obj", armaStartingPos);
 	vector<Face> arma(armaTriangles.faces);
 	vector<glm::vec3> boundsA = getBoundingBox(arma);
 	glm::vec3 arma_min = boundsA[0];
 	glm::vec3 arma_max = boundsA[1];
-	Triangles lucyTriangles = loadOBJ("../meshes/lucy.obj", lucyStartingPos);
+	Triangles lucyTriangles = loadOBJ("../meshes/lucy_small.obj", lucyStartingPos);
 	vector<Face> lucy(lucyTriangles.faces);
 	vector<glm::vec3> boundsL = getBoundingBox(lucy);
 	glm::vec3 lucy_min = boundsL[0];
