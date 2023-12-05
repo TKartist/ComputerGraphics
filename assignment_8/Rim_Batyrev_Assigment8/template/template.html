@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="gl-matrix-min.js"></script>
+    <script type="text/javascript" src="geometry.js"></script>
+    <script type="text/javascript">
+        // Vertex Shader Code
+        var vertexShaderCode = `#version 300 es
+            in vec3 a_position;
+            in vec3 a_color;
+            out vec3 v_color;
+            uniform mat4 rotationMatrix;
+            void main() {
+                gl_Position = rotationMatrix * vec4(a_position, 1.0);
+                v_color = a_color;
+            }`;
+
+        // Fragment Shader Code
+        var fragmentShaderCode = `#version 300 es
+            precision mediump float;
+            in vec3 v_color;
+            out vec4 out_color;
+            void main() {
+                out_color = vec4(v_color, 1.0);
+            }`;
+
+        var gl; 
+        var shaderProgram; 
+        var triangle_vao; 
+        var cube_vao; // Vertex Array Object for the cube
+        var currentObject = 'triangle'; // Can be 'triangle' or 'cube'
+
+        function initWebGL() {
+            var canvas = document.getElementById("webgl-canvas");
+            gl = canvas.getContext("webgl2");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+
+            if (!gl) {
+                console.error("Failed to initialize WebGL.");
+                return;
+            }
+
+            console.log("WebGL successfully initialized.");
+        }
+
+        function compileShader(shader, source, type, name = "") {
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+            if (!success) {
+                console.error(`${name} shader error:`, gl.getShaderInfoLog(shader));
+            }
+        }
+
+        function linkProgram(program, vertShader, fragShader) {
+            gl.attachShader(program, vertShader);
+            gl.attachShader(program, fragShader);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("Could not initialize shaders.");
+            }
+        }
+
+        function createGLSLPrograms() {
+            var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            compileShader(vertexShader, vertexShaderCode, gl.VERTEX_SHADER, "Vertex Shader");
+
+            var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            compileShader(fragmentShader, fragmentShaderCode, gl.FRAGMENT_SHADER, "Fragment Shader");
+
+            shaderProgram = gl.createProgram();
+            linkProgram(shaderProgram, vertexShader, fragmentShader);
+            shaderProgram.rotationMatrix = gl.getUniformLocation(shaderProgram, "rotationMatrix");
+        }
+
+        function initBuffers() {
+            // Initialize buffers for the triangle
+            triangle_vao = gl.createVertexArray();
+            gl.bindVertexArray(triangle_vao);
+            var triangleVertexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangleVertices), gl.STATIC_DRAW);
+            var positionAttributeLocation = gl.getAttribLocation(shaderProgram, "a_position");
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+            var triangleColorBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, triangleColorBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangleColors), gl.STATIC_DRAW);
+            var colorAttributeLocation = gl.getAttribLocation(shaderProgram, "a_color");
+            gl.enableVertexAttribArray(colorAttributeLocation);
+            gl.vertexAttribPointer(colorAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+
+            // Initialize buffers for the cube
+            cube_vao = gl.createVertexArray();
+            gl.bindVertexArray(cube_vao);
+            var cubeVertexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVertices), gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+            var cubeColorBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, cubeColorBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeColors), gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(colorAttributeLocation);
+            gl.vertexAttribPointer(colorAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+        }
+
+        function draw() {
+            var rotation = document.getElementById("rotation");
+            var rotationMatrix = mat4.create();
+            mat4.fromRotation(rotationMatrix, -(rotation.value - 100) / 100 * Math.PI, vec3.fromValues(-0.2, 1, 0));
+
+            gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+            gl.clearColor(0.2, 0.2, 0.2, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.enable(gl.FULL_FACE);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.useProgram(shaderProgram);
+            gl.uniformMatrix4fv(shaderProgram.rotationMatrix, false, rotationMatrix);
+
+            if (currentObject === 'triangle') {
+                gl.bindVertexArray(triangle_vao);
+                gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 3);
+            } else if (currentObject === 'cube') {
+                gl.bindVertexArray(cube_vao);
+                gl.drawArrays(gl.TRIANGLES, 0, cubeVertices.length / 3);
+            }
+
+            window.requestAnimationFrame(draw);
+        }
+
+        function start() {
+            initWebGL();
+            createGLSLPrograms();
+            initBuffers();
+            draw();
+        }
+
+        function switchObject() {
+            currentObject = (currentObject === 'triangle') ? 'cube' : 'triangle';
+            document.getElementById("rotation").value = (currentObject === 'triangle') ? "100" : "75"
+        }
+    </script>
+</head>
+<body onload="start();">
+    <canvas id="webgl-canvas" width="768" height="768"></canvas>
+    <div style="float: right">
+        <div class="slidecontainer">
+            Rotation:</br>
+            <input type="range" min="0" max="200" value="100" id="rotation">
+        </div>
+        <button onclick="switchObject()">Switch Object</button>
+    </div>
+</body>
+</html>
