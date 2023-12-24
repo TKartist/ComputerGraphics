@@ -9,14 +9,20 @@
             // -------------Shaders for the terrain rendering----------------
             var vertexTerrainShaderCode =
                 `#version 300 es
-
+                v_textureCoord = a_textureCoord;
                 }`;
 
             var fragmentTerrainShaderCode =
                 `#version 300 es
+                uniform sampler2D terrainTexture;
                 precision highp float;
-
-
+                in vec2 v_textureCoord;
+                void main() {
+                    // ...
+                    vec4 terrainColor = texture(terrainTexture, v_textureCoord);
+                    // Use terrainColor as needed in your lighting calculations
+                    // ...
+                }
                 }`;
 
             var vertexShaderCode =
@@ -102,8 +108,8 @@
                 createGLSLProgram(shaderProgram, vertexShaderCode, fragmentShaderCode);
 
                 //------------- Creating shader program for the terrain rendering ---------------
-                //terrainShaderProgram = gl.createProgram();
-                //createGLSLProgram(terrainShaderProgram, vertexTerrainShaderCode, fragmentTerrainShaderCode);
+                terrainShaderProgram = gl.createProgram();
+                createGLSLProgram(terrainShaderProgram, vertexTerrainShaderCode, fragmentTerrainShaderCode);
             }
 
             function createVAO(vao, shader, vertices, normals, colors){
@@ -121,6 +127,11 @@
                 let normalBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+                let textureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+
+                
 
                 // bind VAO
                 gl.bindVertexArray(vao);
@@ -142,6 +153,10 @@
                 let normalAttributeLocation = gl.getAttribLocation(shader, "a_normal");
                 gl.enableVertexAttribArray(normalAttributeLocation);
                 gl.vertexAttribPointer(normalAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+
+                let textureCoordAttributeLocation = gl.getAttribLocation(shader, "a_textureCoord");
+                gl.enableVertexAttribArray(textureCoordAttributeLocation);
+                gl.vertexAttribPointer(textureCoordAttributeLocation, 2, gl.FLOAT, false, 0, 0);
             }
 
             function initBuffers(){
@@ -155,18 +170,19 @@
 
                 //------------- Creating VBO and VAO for terrain ---------------
 
-                //buffer for the terrain_vaovar normalBuffer = gl.createBuffer();
-                //let terrainVertices = gl.createBuffer();
-                //gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
-                //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrain_vertices), gl.STATIC_DRAW);
-                //gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
+                //buffer for the terrain_vaovar 
+                normalBuffer = gl.createBuffer();
+                let terrainVertices = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrain_vertices), gl.STATIC_DRAW);
+                gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
 
                 // Creating VAO for the terrain
-                //terrain_vao = gl.createVertexArray();
-                //gl.bindVertexArray(terrain_vao);
-                //let positionAttributeLocation = gl.getAttribLocation(terrainShaderProgram, "a_position");
-                //gl.enableVertexAttribArray(positionAttributeLocation);
-                //gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+                terrain_vao = gl.createVertexArray();
+                gl.bindVertexArray(terrain_vao);
+                let positionAttributeLocation = gl.getAttribLocation(terrainShaderProgram, "a_position");
+                gl.enableVertexAttribArray(positionAttributeLocation);
+                gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
             }
 
             function draw(){
@@ -257,19 +273,20 @@
                 // and then set up the values their values.
                 // Note that the code for setting up the textures
                 // is already provided below.
-
+                let terrainTextureLocation = gl.getUniformLocation(terrainShaderProgram, "terrainTexture");
+                gl.uniform1i(terrainTextureLocation, 0);
 
                 // ------------ Setting up the textures ----------------
-                //for (let i = 0; i < terrainTextures.length; i++){
-                //    let textureLocation = gl.getUniformLocation(terrainShaderProgram, terrainTextures[i].uniformName);
-                //    gl.activeTexture(gl.TEXTURE0 + i);
-                //    gl.bindTexture(gl.TEXTURE_2D, terrainTextures[i].glTexture);
-                //    gl.uniform1i(textureLocation, i);
-                //}
+                for (let i = 0; i < terrainTextures.length; i++){
+                   let textureLocation = gl.getUniformLocation(terrainShaderProgram, terrainTextures[i].uniformName);
+                   gl.activeTexture(gl.TEXTURE0 + i);
+                   gl.bindTexture(gl.TEXTURE_2D, terrainTextures[i].glTexture);
+                   gl.uniform1i(textureLocation, i);
+                }
 
                 // ------------ Rendering the terrain ----------------------
-                //gl.bindVertexArray(terrain_vao);
-                //gl.drawArrays(gl.TRIANGLES, 0, terrain_vertices.length/3);
+                gl.bindVertexArray(terrain_vao);
+                gl.drawArrays(gl.TRIANGLES, 0, terrain_vertices.length/3);
 
                 window.requestAnimationFrame(function() {draw();});
             }
@@ -300,7 +317,7 @@
 
             // a list of the paths to the files with textures
             // add here the paths to the files from which the textures should be read
-            var textureFiles = [];
+            var textureFiles = ["./terrains/Lugano.png"];
 
             // textureVariables should contain the names of uniforms in the shader program
             // IMPORTAN: if you are going to use the code we provide,
@@ -328,6 +345,7 @@
                         terrainTextures[i].uniformName = textureVariables[i];
                     }
                 }
+                console.log(textureFiles)
             }
 
         </script>
