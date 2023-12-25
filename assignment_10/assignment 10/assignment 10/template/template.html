@@ -8,22 +8,46 @@
 
             // -------------Shaders for the terrain rendering----------------
             var vertexTerrainShaderCode =
-                `#version 300 es
-                v_textureCoord = a_textureCoord;
-                }`;
+                    `#version 300 es
+                    in vec3 a_position;
+                    in vec2 a_textureCoord;
 
-            var fragmentTerrainShaderCode =
-                `#version 300 es
-                uniform sampler2D terrainTexture;
-                precision highp float;
-                in vec2 v_textureCoord;
-                void main() {
-                    // ...
-                    vec4 terrainColor = texture(terrainTexture, v_textureCoord);
-                    // Use terrainColor as needed in your lighting calculations
-                    // ...
-                }
-                }`;
+                    uniform mat4 modelMatrix;
+                    uniform mat4 viewMatrix;
+                    uniform mat4 projectionMatrix;
+
+                    out vec2 v_textureCoord;
+
+                    void main() {
+                        gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(a_position, 1.0);
+                        v_textureCoord = a_textureCoord;
+                    }`;
+
+                var fragmentTerrainShaderCode =
+                    `#version 300 es
+                    precision highp float;
+
+                    in vec2 v_textureCoord;
+
+                    uniform sampler2D heightmapTexture;
+                    uniform float terrainHeightScale;
+
+                    out vec4 out_color;
+
+                    void main() {
+                        // Sample the heightmap texture to get the height value
+                        float height = texture(heightmapTexture, v_textureCoord).r;
+
+                        // Displace the fragment position along the normal
+                        vec3 displacedPosition = vec3(gl_FragCoord.x, gl_FragCoord.y + height * terrainHeightScale, gl_FragCoord.z);
+
+                        // Example: Use the displaced position for further calculations
+                        vec3 color = vec3(0.5, 0.5, 0.5); // Set the color to grey for now
+
+                        // Output the final color
+                        out_color = vec4(color, 1.0);
+                    }`;
+
 
             var vertexShaderCode =
                 `#version 300 es
@@ -127,11 +151,6 @@
                 let normalBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-                let textureCoordBuffer = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
-
-                
 
                 // bind VAO
                 gl.bindVertexArray(vao);
@@ -153,10 +172,6 @@
                 let normalAttributeLocation = gl.getAttribLocation(shader, "a_normal");
                 gl.enableVertexAttribArray(normalAttributeLocation);
                 gl.vertexAttribPointer(normalAttributeLocation, 3, gl.FLOAT, false, 0, 0);
-
-                let textureCoordAttributeLocation = gl.getAttribLocation(shader, "a_textureCoord");
-                gl.enableVertexAttribArray(textureCoordAttributeLocation);
-                gl.vertexAttribPointer(textureCoordAttributeLocation, 2, gl.FLOAT, false, 0, 0);
             }
 
             function initBuffers(){
@@ -170,8 +185,7 @@
 
                 //------------- Creating VBO and VAO for terrain ---------------
 
-                //buffer for the terrain_vaovar 
-                normalBuffer = gl.createBuffer();
+                let normalBuffer = gl.createBuffer();
                 let terrainVertices = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrain_vertices), gl.STATIC_DRAW);
@@ -273,8 +287,7 @@
                 // and then set up the values their values.
                 // Note that the code for setting up the textures
                 // is already provided below.
-                let terrainTextureLocation = gl.getUniformLocation(terrainShaderProgram, "terrainTexture");
-                gl.uniform1i(terrainTextureLocation, 0);
+
 
                 // ------------ Setting up the textures ----------------
                 for (let i = 0; i < terrainTextures.length; i++){
@@ -345,7 +358,6 @@
                         terrainTextures[i].uniformName = textureVariables[i];
                     }
                 }
-                console.log(textureFiles)
             }
 
         </script>
