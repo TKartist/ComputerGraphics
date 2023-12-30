@@ -24,29 +24,43 @@
                     out vec3 v_normal;
                     out float height;
 
+                    float decodeHeight(vec2 encodedValue) {
+                        // Decode the 16-bit value from red and green channels
+                        float red = encodedValue.r * 255.0;
+                        float green = encodedValue.g * 255.0;
+                        return (red + green * 256.0) / 65535.0;
+                    }
+
                     void main() {
                         v_textureCoord = a_position.xz + vec2(0.5);
-                        height = texture(heightmap, v_textureCoord).x;
-                        vec2 level = vec2(20.0)/vec2(textureSize(heightmap, 0));
 
-                        float newY = texture(heightmap, v_textureCoord).y / 3.5;
-                        vec3 position = vec3(a_position.x, newY, a_position.z);
-                        
-                        float x1 = texture(heightmap, v_textureCoord + vec2(level.x, 0.0)).x;
-                        float x2 = texture(heightmap, v_textureCoord - vec2(level.x, 0.0)).x;
-                        float z1 = texture(heightmap, v_textureCoord + vec2(0.0, level.y)).x;
-                        float z2 = texture(heightmap, v_textureCoord - vec2(0.0, level.y)).x;
+                        // Sample the 8-bit 3-channel heightmap
+                        vec3 heightmapSample = texture(heightmap, v_textureCoord).rgb;
 
-                        vec3 tangent = vec3(level.x, 0.0, x1 - x2);
-                        vec3 tanBit = vec3(0.0, level.y, z1 - z2);
+                        // Decode the height from the red and green channels
+                        height = decodeHeight(heightmapSample.rg);
+
+                        vec2 level = vec2(20.0) / vec2(textureSize(heightmap, 0)) * vec2(255.0);
+
+                        float x1 = texture(heightmap, v_textureCoord + vec2(level.x, 0.0)).r * 255.0;
+                        float x2 = texture(heightmap, v_textureCoord - vec2(level.x, 0.0)).r * 255.0;
+                        float z1 = texture(heightmap, v_textureCoord + vec2(0.0, level.y)).r * 255.0;
+                        float z2 = texture(heightmap, v_textureCoord - vec2(0.0, level.y)).r * 255.0;
+
+                        vec3 tangent = vec3(level.x, 0.0, (x1 - x2));
+                        vec3 tanBit = vec3(0.0, level.y, (z1 - z2));
+
                         if (height > 0.055) {
                             v_normal = normalize(cross(tangent, tanBit));
                         } else {
                             v_normal = vec3(0.0, 1.0, 0.0);
                         }
 
+                        vec3 position = vec3(a_position.x, height, a_position.z);
+
                         v_view_direction = -vec3(viewMatrix * modelMatrix * vec4(position, 1.0));
                         v_light_direction = vec3(viewMatrix * vec4(lightDirection, 0.0));
+
                         gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
                     }`;
 
@@ -379,7 +393,7 @@
 
         // a list of the paths to the files with textures
         // add here the paths to the files from which the textures should be read
-        var textureFiles = ["./terrains/Lugano.png", "./terrains/rock.jpg", "./terrains/sand.jpg", "./terrains/grass.jpg", "./terrains/water.jpg", "./terrains/snow.jpg"];
+        var textureFiles = ["output_image.jpg", "./terrains/rock.jpg", "./terrains/sand.jpg", "./terrains/grass.jpg", "./terrains/water.jpg", "./terrains/snow.jpg"];
 
         // textureVariables should contain the names of uniforms in the shader program
         // IMPORTAN: if you are going to use the code we provide,
