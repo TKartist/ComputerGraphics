@@ -28,7 +28,7 @@
                         height = texture(heightmap, v_textureCoord).x;
                         vec2 level = vec2(20.0)/vec2(textureSize(heightmap, 0));
 
-                        float newY = a_position.y + texture(heightmap, v_textureCoord).x / 1.7;
+                        float newY = texture(heightmap, v_textureCoord).y / 3.5;
                         vec3 position = vec3(a_position.x, newY, a_position.z);
                         
                         float x1 = texture(heightmap, v_textureCoord + vec2(level.x, 0.0)).x;
