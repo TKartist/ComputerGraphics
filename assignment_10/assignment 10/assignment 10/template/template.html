@@ -8,7 +8,7 @@
 
             // -------------Shaders for the terrain rendering----------------
             var vertexTerrainShaderCode =
-                    `#version 300 es
+                `#version 300 es
                     in vec3 a_position;
 
                     uniform mat4 modelMatrix;
@@ -21,64 +21,88 @@
                     out vec3 v_view_direction;
                     out vec3 v_light_direction;
                     out vec3 v_normal;
-                    out float display;
+                    out float height;
 
                     void main() {
-                        float epsilon = 0.02;
+                        v_textureCoord = a_position.xz + vec2(0.5);
+                        height = texture(heightmap, v_textureCoord).x;
+                        vec2 level = vec2(20.0)/vec2(textureSize(heightmap, 0));
 
-                        v_textureCoord = vec2(a_position.x, a_position.z);
-                        display = texture(heightmap, v_textureCoord).x;
-                        vec3 init_position = vec3(a_position.x, display/3.5, a_position.z);
-                        float xTexelOne = texture(heightmap, v_textureCoord + vec2(epsilon, 0.0)).x;
-                        float xTexelTwo = texture(heightmap, v_textureCoord - vec2(epsilon, 0.0)).x;
-                        float zTexelOne = texture(heightmap, v_textureCoord + vec2(0.0, epsilon)).x;
-                        float zTexelTwo = texture(heightmap, v_textureCoord - vec2(0.0, epsilon)).x;
+                        float newY = a_position.y + texture(heightmap, v_textureCoord).x / 1.7;
+                        vec3 position = vec3(a_position.x, newY, a_position.z);
+                        
+                        float x1 = texture(heightmap, v_textureCoord + vec2(level.x, 0.0)).x;
+                        float x2 = texture(heightmap, v_textureCoord - vec2(level.x, 0.0)).x;
+                        float z1 = texture(heightmap, v_textureCoord + vec2(0.0, level.y)).x;
+                        float z2 = texture(heightmap, v_textureCoord - vec2(0.0, level.y)).x;
 
-                        vec3 tangent = vec3(epsilon, 0.0, xTexelOne - xTexelTwo);
-                        vec3 tangentPerBit = vec3(0.0, epsilon, zTexelOne - zTexelTwo);
-                        if (display > 0.05) {
-                            v_normal = normalize(cross(tangent, tangentPerBit));
+                        vec3 tangent = vec3(level.x, 0.0, x1 - x2);
+                        vec3 tanBit = vec3(0.0, level.y, z1 - z2);
+                        if (height > 0.055) {
+                            v_normal = normalize(cross(tangent, tanBit));
                         } else {
                             v_normal = vec3(0.0, 1.0, 0.0);
                         }
 
-                        v_view_direction = -vec3(viewMatrix * modelMatrix * vec4(a_position, 1.0));
+                        v_view_direction = -vec3(viewMatrix * modelMatrix * vec4(position, 1.0));
                         v_light_direction = vec3(viewMatrix * vec4(lightDirection, 0.0));
-                        gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(init_position, 1.0);
+                        gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
                     }`;
 
                 var fragmentTerrainShaderCode =
                     `#version 300 es
                     precision highp float;
 
+                    uniform sampler2D rockTexture;
+                    uniform sampler2D sandTexture;
+                    uniform sampler2D grassTexture;
+                    uniform sampler2D waterTexture;
+                    uniform sampler2D snowTexture;
+
                     in vec2 v_textureCoord;
                     in vec3 v_normal;
-                    in float display;
+                    in float height;
                     in vec3 v_light_direction;
                     in vec3 v_view_direction;
 
-                    float gamma = 1.2;
-                    float ambient = 0.04;
-                    float diffuse = 0.4;
+                    float gamma = 1.6;
+                    float ambient = 0.01;
+                    float diffuse = 0.8;
                     float speculation = 0.1;
-                    float shininess = 100.0;
+                    float shininess = 80.0;
                     vec3 light = vec3(1.0, 1.0, 1.0);
-                    vec4 color = vec4(0.6, 0.8, 0.7, 1.0);
+                    
+                    // vec4 color = vec4(1.0, 1.0, 1.0, 1.0);
 
                     out vec4 out_color;
 
                     void main() {
-                        vec3 fragNorm = normalize(v_normal);
-                        vec3 fragLight = normalize(v_light_direction);
-                        vec3 fragView = normalize(v_view_direction);
-                        vec3 fragRef = normalize(reflect(-fragLight, fragNorm));
+                        vec4 color_map = vec4(0.0, 0.0, 0.0, 0.0);
+                        float smoother = 0.0;
+                        if(height<=0.055){
+                            smoother = smoothstep(0.05, 0.005, height);
+                            color_map = (1.0 - smoother) * texture(waterTexture, v_textureCoord) + smoother * texture(sandTexture, v_textureCoord);
+                        } else if(height <= 0.1) {
+                            smoother = smoothstep(0.055, 0.1, height);
+                            color_map = (1.0 - smoother) * texture(sandTexture, v_textureCoord) + smoother * texture(grassTexture, v_textureCoord);
+                        } else if (height <= 0.23) {
+                            smoother = smoothstep(0.1, 0.23, height);
+                            color_map = (1.0 - smoother) * texture(grassTexture, v_textureCoord) + smoother * texture(rockTexture, v_textureCoord);
+                        } else {
+                            color_map = texture(snowTexture, v_textureCoord);
+                        }
 
-                        vec3 speculationVal = vec3(speculation) * vec3(pow(max(dot(fragRef, fragView), 0.0), shininess));
-                        vec3 ambientVal = ambient * vec3(color);
-                        vec3 diffuseVal = light * vec3(color) * vec3(diffuse) * vec3(max(dot(fragNorm, fragLight), 0.0));
+                        vec3 N = normalize(v_normal);
+                        vec3 L = normalize(v_light_direction);
+                        vec3 V = normalize(v_view_direction);
+                        vec3 R = normalize(reflect(-L, N));
+
+                        vec3 speculationVal = vec3(speculation) * vec3(pow(max(dot(R, V), 0.0), shininess));
+                        vec3 ambientVal = ambient * color_map.xyz;
+                        vec3 diffuseVal = light * color_map.xyz * vec3(diffuse) * vec3(max(dot(N, L), 0.0));
                         
                         vec3 colorVal = pow(ambientVal + diffuseVal + speculationVal, vec3(1.0/gamma));
-                        out_color = vec4(colorVal, 1);
+                        out_color = vec4(colorVal, 1.0);
                     }`;
 
 
@@ -215,10 +239,10 @@
                 //------------- Creating VBO and VAO for terrain ---------------
 
                 let normalBuffer = gl.createBuffer();
-                let terrain_vertices = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, terrain_vertices);
+                let terrainVertices = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrain_vertices), gl.STATIC_DRAW);
-                gl.bindBuffer(gl.ARRAY_BUFFER, terrain_vertices);
+                gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
 
                 // Creating VAO for the terrain
                 terrain_vao = gl.createVertexArray();
@@ -284,7 +308,7 @@
 
                 //drawing the sphere
                 gl.bindVertexArray(sphere_vao);
-                mat4.fromTranslation(modelMatrix,vec3.fromValues(0.0, 2.0, 0.0));
+                mat4.fromTranslation(modelMatrix,vec3.fromValues(0.0, 3.0, 0.0));
                 gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix);
                 gl.drawArrays(gl.TRIANGLES, 0, sphere_vertices.length/3);
 
@@ -299,15 +323,17 @@
                 // and then set up the values their values.
                 // Note that the code for setting up the textures
                 // is already provided below.
-                let terrainModelMatrixLoc = gl.getUniformLocation(terrainShaderProgram, "modelMatrix");
-                let terrainViewMatrixLoc = gl.getUniformLocation(terrainShaderProgram, "viewMatrix");
-                let terrainProjectionMatrixLoc = gl.getUniformLocation(terrainShaderProgram, "projectionMatrix");
-                let terrainLightDirectionLoc = gl.getUniformLocation(terrainShaderProgram, "lightDirection");
+
+
+                modelMatrixLocation = gl.getUniformLocation(terrainShaderProgram, "modelMatrix");
+                viewMatrixLocation = gl.getUniformLocation(terrainShaderProgram, "viewMatrix");
+                projectionMatrixLocation = gl.getUniformLocation(terrainShaderProgram, "projectionMatrix");
+                lightDirectionLocation = gl.getUniformLocation(terrainShaderProgram, "lightDirection");
 
                 gl.useProgram(terrainShaderProgram);
-                gl.uniformMatrix4fv(terrainViewMatrixLoc, false, viewMatrix);
-                gl.uniformMatrix4fv(terrainProjectionMatrixLoc, false, projectionMatrix);
-                gl.uniform3fv(terrainLightDirectionLoc, lightDirection);
+                gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix);
+                gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
+                gl.uniform3fv(lightDirectionLocation, lightDirection);
 
                 // ------------ Setting up the textures ----------------
                 for (let i = 0; i < terrainTextures.length; i++){
@@ -321,7 +347,7 @@
                 gl.bindVertexArray(terrain_vao);
                 mat4.fromTranslation(modelMatrix, vec3.fromValues(0.0, 0.0, 0.0))
                 mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(18.0, 18.0, 18.0));
-                gl.uniformMatrix4fv(terrainModelMatrixLoc, false, modelMatrix);
+                gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix);
                 gl.drawArrays(gl.TRIANGLES, 0, terrain_vertices.length/3);
                 window.requestAnimationFrame(function() {draw();});
             }
@@ -352,12 +378,12 @@
 
             // a list of the paths to the files with textures
             // add here the paths to the files from which the textures should be read
-            var textureFiles = ["./terrains/Lugano.png"];
+            var textureFiles = ["./terrains/Lugano.png", "./terrains/rock.jpg", "./terrains/sand.jpg", "./terrains/grass.jpg", "./terrains/water.jpg", "./terrains/snow.jpg"];
 
             // textureVariables should contain the names of uniforms in the shader program
             // IMPORTAN: if you are going to use the code we provide,
             // make sure the names below are identical to the one you use in the shader program
-            var textureVariables = ["heightmap"];
+            var textureVariables = ["heightmap", "rockTexture", "sandTexture", "grassTexture", "waterTexture", "snowTexture"];
 
             function count_down(){
                 leftToRead = leftToRead - 1;
@@ -407,7 +433,7 @@
                     Azimuthal angle:</br><input type="range" min="-270" max="90" value="-70" id="light_azimuthal_angle">
                 </div>
                 <div class="slidecontainer">
-                    Polar angle:</br><input type="range" min="1" max="90" value="60" id="light_polar_angle">
+                    Polar angle:</br><input type="range" min="1" max="90" value="30" id="light_polar_angle">
                 </div>
         </div>
     </body>
